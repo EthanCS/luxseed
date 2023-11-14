@@ -1,9 +1,11 @@
+use anyhow::Context;
 use ash::vk;
+use std::collections::HashMap;
 
 use crate::{
     define::{Device, Texture, TextureView, TextureViewCreateDesc},
     impl_handle,
-    pool::{Handle, Handled},
+    pool::{Handle, Handled, Pool},
 };
 
 use super::device::VulkanDevice;
@@ -29,21 +31,38 @@ pub struct VulkanImage {
     pub raw: vk::Image,
     pub device: Option<Handle<Device>>,
     pub desc: VulkanImageDesc,
+    pub views: HashMap<VulkanImageViewDesc, Handle<TextureView>>,
 }
 impl_handle!(VulkanImage, Texture, handle);
 
 impl VulkanImage {
+    pub fn get_or_create_view(
+        &mut self,
+        device: &VulkanDevice,
+        desc: &VulkanImageViewDesc,
+        p_image_view: &mut Pool<VulkanImageView>,
+    ) -> anyhow::Result<Handle<TextureView>> {
+        if let Some(handle) = self.views.get(desc) {
+            return Ok(*handle);
+        }
+        let item = p_image_view.malloc();
+        item.1.init(device, self, desc)?;
+        self.views.insert(*desc, item.0);
+        Ok(item.0)
+    }
+
     pub fn destroy(&mut self, device: &VulkanDevice) {
         unsafe {
             device.raw().destroy_image(self.raw, None);
         }
+        self.views.clear();
         self.raw = vk::Image::null();
         self.device = None;
         self.desc = Default::default();
     }
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct VulkanImageViewDesc {
     pub view_type: vk::ImageViewType,
     pub aspect_mask: vk::ImageAspectFlags,
@@ -58,11 +77,29 @@ pub struct VulkanImageViewDesc {
     pub layer_count: u8,
 }
 
+impl VulkanImageViewDesc {
+    pub fn from_create_desc(desc: &TextureViewCreateDesc, image: &VulkanImage) -> Self {
+        let format = if let Some(f) = desc.format { f.into() } else { image.desc.format };
+        Self {
+            view_type: desc.view_type.into(),
+            aspect_mask: desc.aspect_mask.into(),
+            format: format,
+            component_r: desc.component_r.into(),
+            component_g: desc.component_g.into(),
+            component_b: desc.component_b.into(),
+            component_a: desc.component_a.into(),
+            base_mip_level: desc.base_mip_level,
+            level_count: desc.level_count,
+            base_array_layer: desc.base_array_layer,
+            layer_count: desc.layer_count,
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct VulkanImageView {
     pub handle: Option<Handle<TextureView>>,
     pub raw: vk::ImageView,
-
     pub device: Option<Handle<Device>>,
     pub texture: Option<Handle<Texture>>,
     pub desc: VulkanImageViewDesc,
@@ -70,44 +107,15 @@ pub struct VulkanImageView {
 impl_handle!(VulkanImageView, TextureView, handle);
 
 impl VulkanImageView {
-    pub fn init_from_raw_image(
-        &mut self,
-        device: &VulkanDevice,
-        image: vk::Image,
-        format: vk::Format,
-        desc: &TextureViewCreateDesc,
-    ) -> anyhow::Result<()> {
-        let mut view_desc: VulkanImageViewDesc = (*desc).into();
-        view_desc.format = format;
-
-        self.init_impl(device, image, view_desc)
-    }
-
     pub fn init(
         &mut self,
         device: &VulkanDevice,
         texture: &VulkanImage,
-        desc: &TextureViewCreateDesc,
-    ) -> anyhow::Result<()> {
-        self.texture = texture.get_handle();
-
-        let mut view_desc: VulkanImageViewDesc = (*desc).into();
-        if view_desc.format == vk::Format::UNDEFINED {
-            view_desc.format = texture.desc.format;
-        }
-
-        self.init_impl(device, texture.raw, view_desc)
-    }
-
-    fn init_impl(
-        &mut self,
-        device: &VulkanDevice,
-        image: vk::Image,
-        desc: VulkanImageViewDesc,
+        desc: &VulkanImageViewDesc,
     ) -> anyhow::Result<()> {
         let view_info = vk::ImageViewCreateInfo::builder()
             .view_type(desc.view_type)
-            .image(image)
+            .image(texture.raw)
             .components(
                 vk::ComponentMapping::builder()
                     .r(desc.component_r)
@@ -126,11 +134,10 @@ impl VulkanImageView {
                     .layer_count(desc.layer_count.into())
                     .build(),
             );
-
-        self.desc = desc;
+        self.texture = texture.get_handle();
+        self.desc = *desc;
         self.device = device.get_handle();
         self.raw = unsafe { device.raw().create_image_view(&view_info, None)? };
-
         Ok(())
     }
 
@@ -139,6 +146,8 @@ impl VulkanImageView {
             device.raw().destroy_image_view(self.raw, None);
         }
         self.device = None;
+        self.texture = None;
+        self.desc = Default::default();
         self.raw = vk::ImageView::null();
     }
 }

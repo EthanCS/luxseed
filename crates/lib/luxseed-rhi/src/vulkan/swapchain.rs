@@ -5,7 +5,7 @@ use ash::{
 };
 
 use crate::{
-    define::{Surface, Swapchain, SwapchainCreation, Texture},
+    define::{Device, Surface, Swapchain, SwapchainCreation, Texture},
     impl_handle,
     pool::{Handle, Handled, Pool},
     vulkan::{
@@ -25,6 +25,7 @@ use super::{
 pub struct VulkanSwapchain {
     pub handle: Option<Handle<Swapchain>>,
     pub raw: vk::SwapchainKHR,
+    pub device: Option<Handle<Device>>,
     pub surface: Option<Handle<Surface>>,
     pub loader: Option<khr::Swapchain>,
     pub surface_format: SurfaceFormatKHR,
@@ -148,10 +149,12 @@ impl VulkanSwapchain {
                 array_layers: 1,
                 ..Default::default()
             };
+            item.1.views.clear();
             images.push(item.0);
         }
 
         self.raw = raw;
+        self.device = device.get_handle();
         self.loader = Some(loader);
         self.surface = Some(desc.surface);
         self.back_buffers = images;
@@ -186,8 +189,8 @@ impl VulkanSwapchain {
                 loader.destroy_swapchain(self.raw, None);
             }
         }
-
         self.raw = vk::SwapchainKHR::null();
+        self.device = None;
         self.surface = None;
         self.loader = None;
         self.back_buffers.clear();

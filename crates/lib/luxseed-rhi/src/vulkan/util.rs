@@ -252,24 +252,6 @@ impl From<TextureUsage> for vk::ImageUsageFlags {
     }
 }
 
-impl From<TextureViewCreateDesc> for VulkanImageViewDesc {
-    fn from(value: TextureViewCreateDesc) -> Self {
-        Self {
-            view_type: value.view_type.into(),
-            aspect_mask: value.aspect_mask.into(),
-            format: value.format.unwrap_or(Format::Unknown).into(),
-            component_r: value.component_r.into(),
-            component_g: value.component_g.into(),
-            component_b: value.component_b.into(),
-            component_a: value.component_a.into(),
-            base_mip_level: value.base_mip_level,
-            level_count: value.level_count,
-            base_array_layer: value.base_array_layer,
-            layer_count: value.layer_count,
-        }
-    }
-}
-
 impl From<CommandBufferLevel> for vk::CommandBufferLevel {
     fn from(value: CommandBufferLevel) -> Self {
         match value {

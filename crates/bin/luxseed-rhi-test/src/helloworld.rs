@@ -13,7 +13,6 @@ pub struct App {
     pub command_pool: Handle<CommandPool>,
     pub command_buffers: Vec<Handle<CommandBuffer>>,
     pub framebuffers: Vec<Handle<Framebuffer>>,
-    pub frame_buffer_view: Vec<Handle<TextureView>>,
 }
 
 impl App {
@@ -42,7 +41,6 @@ impl App {
 
         let mut command_buffers = Vec::new();
         let mut framebuffers = Vec::new();
-        let mut frame_buffer_view = Vec::new();
 
         for i in 0..image_count {
             let back_buffer = sys.rhi.get_swapchain_back_buffer(sys.swapchain, i as usize)?;
@@ -61,21 +59,11 @@ impl App {
             )?;
             let cb = sys.rhi.create_command_buffer(command_pool, CommandBufferLevel::Primary)?;
 
-            frame_buffer_view.push(view);
             framebuffers.push(fb);
             command_buffers.push(cb);
         }
 
-        Ok(Self {
-            sys,
-            vs,
-            fs,
-            pipeline,
-            command_pool,
-            command_buffers,
-            framebuffers,
-            frame_buffer_view,
-        })
+        Ok(Self { sys, vs, fs, pipeline, command_pool, command_buffers, framebuffers })
     }
 
     pub fn render(&mut self, window: &Window) -> anyhow::Result<()> {
@@ -156,9 +144,6 @@ impl App {
         self.sys.rhi.destroy_shader_module(self.fs).unwrap();
         for fb in self.framebuffers.iter() {
             self.sys.rhi.destroy_framebuffer(*fb).unwrap();
-        }
-        for fbv in self.frame_buffer_view.iter() {
-            self.sys.rhi.destroy_texture_view(*fbv).unwrap();
         }
         self.sys.rhi.destroy_raster_pipeline(self.pipeline).unwrap();
 
