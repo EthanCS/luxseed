@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "crates/bin/luxseed-rhi-test",
+    "crates/lib/luxseed-rhi",
+]

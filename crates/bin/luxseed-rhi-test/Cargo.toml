@@ -1,0 +1,14 @@
+[package]
+name = "luxseed-rhi-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+winit = "0.28.3"
+raw-window-handle = "0.5.2"
+luxseed-rhi = { path = "../../lib/luxseed-rhi" }
+log = "0.4"
+env_logger = "0.9.0"
+dotenvy = "0.15.7"
+shaderc = "0.8.2"
+anyhow = "1.0.70"
