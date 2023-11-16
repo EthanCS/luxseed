@@ -3,6 +3,8 @@ pub mod enums;
 pub mod pool;
 pub mod vulkan;
 
+use anyhow::Result;
+
 use define::*;
 use enums::*;
 use pool::Handle;
@@ -11,7 +13,7 @@ use vulkan::VulkanRHI;
 pub const MAX_RENDER_TARGETS: usize = 8;
 pub const MAX_SHADER_STAGES: usize = 5;
 
-pub fn rhi_create(backend: BackendType, desc: RHICreation) -> anyhow::Result<Box<dyn RHI>> {
+pub fn rhi_create(backend: BackendType, desc: RHICreation) -> Result<Box<dyn RHI>> {
     match backend {
         BackendType::Vulkan => Ok(Box::new(VulkanRHI::new(desc)?)),
         _ => anyhow::bail!("Unsupported RHI backend type"),
@@ -24,137 +26,133 @@ pub trait RHI {
     fn get_adapter_info(&self, adapter: Handle<Adapter>) -> Option<&AdapterInfo>;
 
     // Device
-    fn create_device(&mut self, adapter: Handle<Adapter>) -> anyhow::Result<Handle<Device>>;
-    fn destroy_device(&mut self, device: Handle<Device>) -> anyhow::Result<()>;
-    fn wait_idle(&self, device: Handle<Device>) -> anyhow::Result<()>;
+    fn create_device(&mut self, adapter: Handle<Adapter>) -> Result<Handle<Device>>;
+    fn destroy_device(&mut self, device: Handle<Device>) -> Result<()>;
+    fn wait_idle(&self, device: Handle<Device>) -> Result<()>;
 
     // Fence
-    fn create_fence(
-        &mut self,
-        device: Handle<Device>,
-        signal: bool,
-    ) -> anyhow::Result<Handle<Fence>>;
-    fn destroy_fence(&mut self, handle: Handle<Fence>) -> anyhow::Result<()>;
-    fn wait_for_fences(
-        &self,
-        fences: &[Handle<Fence>],
-        wait_all: bool,
-        timeout: u64,
-    ) -> anyhow::Result<()>;
-    fn reset_fences(&self, fences: &[Handle<Fence>]) -> anyhow::Result<()>;
+    fn create_fence(&mut self, device: Handle<Device>, signal: bool) -> Result<Handle<Fence>>;
+    fn destroy_fence(&mut self, handle: Handle<Fence>) -> Result<()>;
+    fn wait_for_fences(&self, fences: &[Handle<Fence>], wait_all: bool, timeout: u64)
+        -> Result<()>;
+    fn reset_fences(&self, fences: &[Handle<Fence>]) -> Result<()>;
 
     // Semaphore
-    fn create_semaphore(&mut self, device: Handle<Device>) -> anyhow::Result<Handle<Semaphore>>;
-    fn destroy_semaphore(&mut self, handle: Handle<Semaphore>) -> anyhow::Result<()>;
+    fn create_semaphore(&mut self, device: Handle<Device>) -> Result<Handle<Semaphore>>;
+    fn destroy_semaphore(&mut self, handle: Handle<Semaphore>) -> Result<()>;
 
     // Queue
-    fn get_queue(
-        &mut self,
-        device: Handle<Device>,
-        queue_type: QueueType,
-    ) -> anyhow::Result<Handle<Queue>>;
-    fn queue_submit(&self, handle: Handle<Queue>, desc: &QueueSubmitDesc) -> anyhow::Result<()>;
-    fn queue_present(&self, handle: Handle<Queue>, desc: &QueuePresentDesc)
-        -> anyhow::Result<bool>;
-    fn wait_queue_idle(&self, handle: Handle<Queue>) -> anyhow::Result<()>;
+    fn get_queue(&mut self, device: Handle<Device>, queue_type: QueueType)
+        -> Result<Handle<Queue>>;
+    fn queue_submit(&self, handle: Handle<Queue>, desc: &QueueSubmitDesc) -> Result<()>;
+    fn queue_present(&self, handle: Handle<Queue>, desc: &QueuePresentDesc) -> Result<bool>;
+    fn wait_queue_idle(&self, handle: Handle<Queue>) -> Result<()>;
 
     // Surface
-    fn create_surface(&mut self, desc: SurfaceCreateDesc) -> anyhow::Result<Handle<Surface>>;
-    fn destroy_surface(&mut self, surface: Handle<Surface>) -> anyhow::Result<()>;
+    fn create_surface(&mut self, desc: SurfaceCreateDesc) -> Result<Handle<Surface>>;
+    fn destroy_surface(&mut self, surface: Handle<Surface>) -> Result<()>;
 
     // Swapchain
     fn create_swapchain(
         &mut self,
         device: Handle<Device>,
         creation: SwapchainCreation,
-    ) -> anyhow::Result<Handle<Swapchain>>;
+    ) -> Result<Handle<Swapchain>>;
+
+    /// Acquires the next image from the swapchain.
+    ///
+    /// # Arguments
+    ///
+    /// * `handle` - A handle to the swapchain.
+    /// * `timeout` - The timeout in nanoseconds.
+    /// * `semaphore` - A handle to the semaphore.
+    /// * `fence` - An optional handle to the fence.
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the index of the acquired image and a boolean indicating whether the swapchain is suboptimal.
     fn acquire_next_image(
         &self,
         handle: Handle<Swapchain>,
         timeout: u64,
         semaphore: Handle<Semaphore>,
         fence: Option<Handle<Fence>>,
-    ) -> anyhow::Result<usize>;
+    ) -> Result<(usize, bool)>;
+
     fn get_swapchain_back_buffer(
         &self,
         handle: Handle<Swapchain>,
         index: usize,
-    ) -> anyhow::Result<Handle<Texture>>;
-    fn get_swapchain_image_count(&self, handle: Handle<Swapchain>) -> anyhow::Result<u8>;
-    fn destroy_swapchain(&mut self, swapchain: Handle<Swapchain>) -> anyhow::Result<()>;
+    ) -> Result<Handle<Texture>>;
+    fn get_swapchain_image_count(&self, handle: Handle<Swapchain>) -> Result<u8>;
+    fn destroy_swapchain(&mut self, swapchain: Handle<Swapchain>) -> Result<()>;
 
     // Texture / Texture View
     fn create_texture(
         &mut self,
         device: Handle<Device>,
         creation: &TextureCreation,
-    ) -> anyhow::Result<Handle<Texture>>;
-    fn destroy_texture(&mut self, handle: Handle<Texture>) -> anyhow::Result<()>;
+    ) -> Result<Handle<Texture>>;
+    fn destroy_texture(&mut self, handle: Handle<Texture>) -> Result<()>;
     fn create_texture_view(
         &mut self,
         device: Handle<Device>,
         texture: Handle<Texture>,
         creation: &TextureViewCreateDesc,
-    ) -> anyhow::Result<Handle<TextureView>>;
-    fn destroy_texture_view(&mut self, handle: Handle<TextureView>) -> anyhow::Result<()>;
+    ) -> Result<Handle<TextureView>>;
+    fn destroy_texture_view(&mut self, handle: Handle<TextureView>) -> Result<()>;
 
     // Shader
     fn create_shader_module(
         &mut self,
         device: Handle<Device>,
         desc: &ShaderModuleCreation,
-    ) -> anyhow::Result<Handle<Shader>>;
-    fn destroy_shader_module(&mut self, shader_module: Handle<Shader>) -> anyhow::Result<()>;
+    ) -> Result<Handle<Shader>>;
+    fn destroy_shader_module(&mut self, shader_module: Handle<Shader>) -> Result<()>;
 
     // Pipeline
     fn create_raster_pipeline(
         &mut self,
         device: Handle<Device>,
         desc: &RasterPipelineCreation,
-    ) -> anyhow::Result<Handle<RasterPipeline>>;
-    fn destroy_raster_pipeline(
-        &mut self,
-        raster_pipeline: Handle<RasterPipeline>,
-    ) -> anyhow::Result<()>;
+    ) -> Result<Handle<RasterPipeline>>;
+    fn destroy_raster_pipeline(&mut self, raster_pipeline: Handle<RasterPipeline>) -> Result<()>;
 
     // Render pass
     fn create_render_pass(
         &mut self,
         device: Handle<Device>,
         output: &RenderPassOutput,
-    ) -> anyhow::Result<Handle<RenderPass>>;
-    fn destroy_render_pass(&mut self, handle: Handle<RenderPass>) -> anyhow::Result<()>;
+    ) -> Result<Handle<RenderPass>>;
+    fn destroy_render_pass(&mut self, handle: Handle<RenderPass>) -> Result<()>;
 
     // Framebuffer
     fn create_framebuffer(
         &mut self,
         device: Handle<Device>,
         creation: &FramebufferCreateDesc,
-    ) -> anyhow::Result<Handle<Framebuffer>>;
-    fn destroy_framebuffer(&mut self, handle: Handle<Framebuffer>) -> anyhow::Result<()>;
+    ) -> Result<Handle<Framebuffer>>;
+    fn destroy_framebuffer(&mut self, handle: Handle<Framebuffer>) -> Result<()>;
 
     // Command pool / Command buffer
-    fn create_command_pool(&mut self, queue: Handle<Queue>) -> anyhow::Result<Handle<CommandPool>>;
-    fn reset_command_pool(&self, command_pool: Handle<CommandPool>) -> anyhow::Result<()>;
-    fn destroy_command_pool(&mut self, command_pool: Handle<CommandPool>) -> anyhow::Result<()>;
+    fn create_command_pool(&mut self, queue: Handle<Queue>) -> Result<Handle<CommandPool>>;
+    fn reset_command_pool(&self, command_pool: Handle<CommandPool>) -> Result<()>;
+    fn destroy_command_pool(&mut self, command_pool: Handle<CommandPool>) -> Result<()>;
     fn create_command_buffer(
         &mut self,
         command_pool: Handle<CommandPool>,
         level: CommandBufferLevel,
-    ) -> anyhow::Result<Handle<CommandBuffer>>;
+    ) -> Result<Handle<CommandBuffer>>;
     fn reset_command_buffer(
         &self,
         handle: Handle<CommandBuffer>,
         release_resources: bool,
-    ) -> anyhow::Result<()>;
-    fn destroy_command_buffer(
-        &mut self,
-        command_buffer: Handle<CommandBuffer>,
-    ) -> anyhow::Result<()>;
+    ) -> Result<()>;
+    fn destroy_command_buffer(&mut self, command_buffer: Handle<CommandBuffer>) -> Result<()>;
 
     // CMDs
-    fn cmd_begin(&self, cb: Handle<CommandBuffer>) -> anyhow::Result<()>;
-    fn cmd_end(&self, cb: Handle<CommandBuffer>) -> anyhow::Result<()>;
+    fn cmd_begin(&self, cb: Handle<CommandBuffer>) -> Result<()>;
+    fn cmd_end(&self, cb: Handle<CommandBuffer>) -> Result<()>;
     fn cmd_begin_render_pass(
         &self,
         cb: Handle<CommandBuffer>,
@@ -162,13 +160,13 @@ pub trait RHI {
         framebuffer: Handle<Framebuffer>,
         clear_values: Option<&[ClearColor]>,
         clear_depth_stencil: Option<ClearDepthStencil>,
-    ) -> anyhow::Result<()>;
-    fn cmd_end_render_pass(&self, cb: Handle<CommandBuffer>) -> anyhow::Result<()>;
+    ) -> Result<()>;
+    fn cmd_end_render_pass(&self, cb: Handle<CommandBuffer>) -> Result<()>;
     fn cmd_bind_raster_pipeline(
         &self,
         cb: Handle<CommandBuffer>,
         pipeline: Handle<RasterPipeline>,
-    ) -> anyhow::Result<()>;
+    ) -> Result<()>;
     fn cmd_set_viewport(
         &self,
         cb: Handle<CommandBuffer>,
@@ -178,7 +176,7 @@ pub trait RHI {
         height: f32,
         min_depth: f32,
         max_depth: f32,
-    ) -> anyhow::Result<()>;
+    ) -> Result<()>;
     fn cmd_set_scissor(
         &self,
         cb: Handle<CommandBuffer>,
@@ -186,7 +184,7 @@ pub trait RHI {
         y: u32,
         width: u32,
         height: u32,
-    ) -> anyhow::Result<()>;
+    ) -> Result<()>;
     fn cmd_draw(
         &self,
         cb: Handle<CommandBuffer>,
@@ -194,7 +192,7 @@ pub trait RHI {
         instance_count: u32,
         first_vertex: u32,
         first_instance: u32,
-    ) -> anyhow::Result<()>;
+    ) -> Result<()>;
 
     // Debug
     fn cmd_begin_event(
@@ -202,12 +200,12 @@ pub trait RHI {
         command_buffer: Handle<CommandBuffer>,
         name: &str,
         color: [f32; 4],
-    ) -> anyhow::Result<()>;
-    fn cmd_end_event(&self, command_buffer: Handle<CommandBuffer>) -> anyhow::Result<()>;
+    ) -> Result<()>;
+    fn cmd_end_event(&self, command_buffer: Handle<CommandBuffer>) -> Result<()>;
     fn cmd_set_marker(
         &self,
         command_buffer: Handle<CommandBuffer>,
         name: &str,
         color: [f32; 4],
-    ) -> anyhow::Result<()>;
+    ) -> Result<()>;
 }

@@ -7,7 +7,7 @@ use crate::{
     enums::*,
 };
 
-use super::{image::VulkanImageViewDesc, render_pass::VulkanRenderPassOutput};
+use super::render_pass::VulkanRenderPassOutput;
 
 impl From<Format> for vk::Format {
     fn from(item: Format) -> Self {

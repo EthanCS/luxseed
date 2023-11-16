@@ -6,13 +6,12 @@ use crate::render_system::RenderSystem;
 
 pub struct App {
     pub sys: RenderSystem,
-
+    pub resize: bool,
     pub vs: Handle<Shader>,
     pub fs: Handle<Shader>,
     pub pipeline: Handle<RasterPipeline>,
     pub command_pool: Handle<CommandPool>,
     pub command_buffers: Vec<Handle<CommandBuffer>>,
-    pub framebuffers: Vec<Handle<Framebuffer>>,
 }
 
 impl App {
@@ -40,78 +39,54 @@ impl App {
         let image_count = sys.max_frames_in_flight;
 
         let mut command_buffers = Vec::new();
-        let mut framebuffers = Vec::new();
 
         for i in 0..image_count {
-            let back_buffer = sys.rhi.get_swapchain_back_buffer(sys.swapchain, i as usize)?;
-            let view = sys.rhi.create_texture_view(
-                sys.device,
-                back_buffer,
-                &TextureViewCreateDesc { ..TextureViewCreateDesc::default() },
-            )?;
-            let fb = sys.rhi.create_framebuffer(
-                sys.device,
-                &FramebufferCreateDesc {
-                    render_pass: sys.swapchain_render_pass,
-                    color_views: &[view],
-                    depth_stencil_view: None,
-                },
-            )?;
             let cb = sys.rhi.create_command_buffer(command_pool, CommandBufferLevel::Primary)?;
 
-            framebuffers.push(fb);
             command_buffers.push(cb);
         }
 
-        Ok(Self { sys, vs, fs, pipeline, command_pool, command_buffers, framebuffers })
+        Ok(Self { sys, vs, fs, pipeline, command_pool, command_buffers, resize: false })
     }
 
     pub fn render(&mut self, window: &Window) -> anyhow::Result<()> {
-        self.sys.begin_frame()?;
+        let valid = self.sys.begin_frame(window.inner_size().width, window.inner_size().height)?;
 
-        let image_index = self
-            .sys
-            .rhi
-            .acquire_next_image(
-                self.sys.swapchain,
-                u64::MAX,
-                self.sys.get_image_available_semaphore(),
-                None,
-            )
-            .unwrap();
-        let cb = self.command_buffers[self.sys.frame];
-        self.sys.rhi.reset_command_buffer(cb, false)?;
-        {
-            self.sys.rhi.cmd_begin(cb)?;
-            self.sys.rhi.cmd_begin_render_pass(
-                cb,
-                self.sys.swapchain_render_pass,
-                self.framebuffers[image_index],
-                Some(&[ClearColor::new([0.0, 0.0, 0.0, 1.0])]),
-                None,
-            )?;
-            self.sys.rhi.cmd_bind_raster_pipeline(cb, self.pipeline)?;
-            self.sys.rhi.cmd_set_viewport(
-                cb,
-                0.0,
-                0.0,
-                window.inner_size().width as f32,
-                window.inner_size().height as f32,
-                0.0,
-                1.0,
-            )?;
-            self.sys.rhi.cmd_set_scissor(
-                cb,
-                0,
-                0,
-                window.inner_size().width,
-                window.inner_size().height,
-            )?;
-            self.sys.rhi.cmd_draw(cb, 3, 1, 0, 0)?;
-            self.sys.rhi.cmd_end_render_pass(cb)?;
-            self.sys.rhi.cmd_end(cb)?;
+        if !valid {
+            return Ok(());
         }
 
+        let cb = self.command_buffers[self.sys.frame];
+
+        self.sys.rhi.reset_command_buffer(cb, false)?;
+        self.sys.rhi.cmd_begin(cb)?;
+        self.sys.rhi.cmd_begin_render_pass(
+            cb,
+            self.sys.swapchain_render_pass,
+            self.sys.get_swapchain_framebuffer(),
+            Some(&[ClearColor::new([0.0, 0.0, 0.0, 1.0])]),
+            None,
+        )?;
+        self.sys.rhi.cmd_bind_raster_pipeline(cb, self.pipeline)?;
+        self.sys.rhi.cmd_set_viewport(
+            cb,
+            0.0,
+            0.0,
+            window.inner_size().width as f32,
+            window.inner_size().height as f32,
+            0.0,
+            1.0,
+        )?;
+        self.sys.rhi.cmd_set_scissor(
+            cb,
+            0,
+            0,
+            window.inner_size().width,
+            window.inner_size().height,
+        )?;
+        self.sys.rhi.cmd_draw(cb, 3, 1, 0, 0)?;
+        self.sys.rhi.cmd_end_render_pass(cb)?;
+        self.sys.rhi.cmd_end(cb)?;
         self.sys.rhi.queue_submit(
             self.sys.graphics_queue,
             &QueueSubmitDesc {
@@ -123,16 +98,8 @@ impl App {
             },
         )?;
 
-        self.sys.rhi.queue_present(
-            self.sys.graphics_queue,
-            &QueuePresentDesc {
-                swapchain: self.sys.swapchain,
-                image_index: image_index as u32,
-                wait_semaphores: &[self.sys.get_render_finished_semaphore()],
-            },
-        )?;
+        self.sys.end_frame(self.resize, window.inner_size().width, window.inner_size().height)?;
 
-        self.sys.end_frame()?;
         Ok(())
     }
 
@@ -142,9 +109,6 @@ impl App {
         self.sys.rhi.destroy_command_pool(self.command_pool).unwrap();
         self.sys.rhi.destroy_shader_module(self.vs).unwrap();
         self.sys.rhi.destroy_shader_module(self.fs).unwrap();
-        for fb in self.framebuffers.iter() {
-            self.sys.rhi.destroy_framebuffer(*fb).unwrap();
-        }
         self.sys.rhi.destroy_raster_pipeline(self.pipeline).unwrap();
 
         self.sys.destroy().unwrap();
