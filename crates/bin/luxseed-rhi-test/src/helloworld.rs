@@ -36,13 +36,9 @@ impl App {
             .unwrap();
         let command_pool = sys.rhi.create_command_pool(sys.graphics_queue).unwrap();
 
-        let image_count = sys.max_frames_in_flight;
-
         let mut command_buffers = Vec::new();
-
-        for i in 0..image_count {
+        for _ in 0..sys.max_frames_in_flight {
             let cb = sys.rhi.create_command_buffer(command_pool, CommandBufferLevel::Primary)?;
-
             command_buffers.push(cb);
         }
 
