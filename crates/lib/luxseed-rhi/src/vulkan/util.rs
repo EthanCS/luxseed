@@ -18,6 +18,10 @@ impl From<Format> for vk::Format {
             Format::B8G8R8_SRGB => vk::Format::B8G8R8_SRGB,
             Format::R8G8B8_UNORM => vk::Format::R8G8B8_UNORM,
             Format::R8G8B8_SRGB => vk::Format::R8G8B8_SRGB,
+            Format::R32_SFLOAT => vk::Format::R32_SFLOAT,
+            Format::R32G32_SFLOAT => vk::Format::R32G32_SFLOAT,
+            Format::R32G32B32_SFLOAT => vk::Format::R32G32B32_SFLOAT,
+            Format::R32G32B32A32_SFLOAT => vk::Format::R32G32B32A32_SFLOAT,
             _ => vk::Format::UNDEFINED,
         }
     }
@@ -34,6 +38,10 @@ impl From<vk::Format> for Format {
             vk::Format::B8G8R8_SRGB => Format::B8G8R8_SRGB,
             vk::Format::R8G8B8_UNORM => Format::R8G8B8_UNORM,
             vk::Format::R8G8B8_SRGB => Format::R8G8B8_SRGB,
+            vk::Format::R32_SFLOAT => Format::R32_SFLOAT,
+            vk::Format::R32G32_SFLOAT => Format::R32G32_SFLOAT,
+            vk::Format::R32G32B32_SFLOAT => Format::R32G32B32_SFLOAT,
+            vk::Format::R32G32B32A32_SFLOAT => Format::R32G32B32A32_SFLOAT,
             _ => Format::Unknown,
         }
     }
@@ -342,6 +350,15 @@ impl From<ClearDepthStencil> for vk::ClearValue {
                 depth: value.depth,
                 stencil: value.stencil,
             },
+        }
+    }
+}
+
+impl From<VertexInputRate> for vk::VertexInputRate {
+    fn from(value: VertexInputRate) -> Self {
+        match value {
+            VertexInputRate::Vertex => vk::VertexInputRate::VERTEX,
+            VertexInputRate::Instance => vk::VertexInputRate::INSTANCE,
         }
     }
 }

@@ -117,6 +117,10 @@ pub enum Format {
     B8G8R8_SRGB,
     R8G8B8_UNORM,
     R8G8B8_SRGB,
+    R32_SFLOAT,
+    R32G32_SFLOAT,
+    R32G32B32_SFLOAT,
+    R32G32B32A32_SFLOAT,
 }
 
 #[derive(Default, Clone, Copy, Debug, Hash)]
@@ -264,4 +268,10 @@ pub enum PipelineStage {
     Host,
     AllGraphics,
     AllCommands,
+}
+
+#[derive(Clone, Copy)]
+pub enum VertexInputRate {
+    Vertex,
+    Instance,
 }

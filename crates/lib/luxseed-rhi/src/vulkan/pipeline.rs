@@ -1,7 +1,8 @@
+use anyhow::Context;
 use ash::vk;
 
 use crate::{
-    define::{Device, RasterPipeline, RasterPipelineCreation},
+    define::{Device, RasterPipeline, RasterPipelineCreateDesc},
     impl_handle,
     pool::{Handle, Handled, Pool},
 };
@@ -22,11 +23,44 @@ impl VulkanRasterPipeline {
         &mut self,
         device: &VulkanDevice,
         render_pass: vk::RenderPass,
-        desc: &RasterPipelineCreation,
+        desc: &RasterPipelineCreateDesc,
         p_shader: &Pool<VulkanShader>,
     ) -> anyhow::Result<()> {
         // Vertex Input
-        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder().build();
+        let mut vertex_input_bindings = Vec::new();
+        let mut vertex_input_attributes = Vec::new();
+
+        if let Some(bindings) = desc.vertex_input_bindings {
+            let mut binding: u32 = 0;
+
+            for b in bindings.iter() {
+                let vib = vk::VertexInputBindingDescription::builder()
+                    .binding(binding)
+                    .stride(b.stride as u32)
+                    .input_rate(b.input_rate.into())
+                    .build();
+
+                let mut location: u32 = 0;
+                for a in b.attributes.iter() {
+                    let via = vk::VertexInputAttributeDescription::builder()
+                        .binding(binding)
+                        .location(location)
+                        .format(a.format.into())
+                        .offset(a.offset as u32)
+                        .build();
+                    vertex_input_attributes.push(via);
+                    location = location + 1;
+                }
+
+                vertex_input_bindings.push(vib);
+                binding = binding + 1;
+            }
+        }
+
+        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+            .vertex_binding_descriptions(&vertex_input_bindings)
+            .vertex_attribute_descriptions(&vertex_input_attributes)
+            .build();
 
         // Input Assembly State
         let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
@@ -78,21 +112,24 @@ impl VulkanRasterPipeline {
 
         // Color blend State
         let mut color_blend_attachments = Vec::new();
-        if desc.num_blend_states > 0 {
-            for i in 0..desc.num_blend_states {
-                let blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
-                    .color_write_mask(vk::ColorComponentFlags::RGBA)
-                    .blend_enable(desc.blend_states[i as usize].blend_enable)
-                    .src_color_blend_factor(desc.blend_states[i as usize].source_color.into())
-                    .dst_color_blend_factor(desc.blend_states[i as usize].destination_color.into())
-                    .color_blend_op(desc.blend_states[i as usize].color_op.into())
-                    .src_alpha_blend_factor(desc.blend_states[i as usize].source_alpha.into())
-                    .dst_alpha_blend_factor(desc.blend_states[i as usize].destination_alpha.into())
-                    .alpha_blend_op(desc.blend_states[i as usize].alpha_op.into())
-                    .build();
-                color_blend_attachments.push(blend_attachment);
-            }
-        } else {
+        let mut num_blend_states = 0;
+
+        for bs in desc.blend_states.iter() {
+            let blend_attachment = vk::PipelineColorBlendAttachmentState::builder()
+                .color_write_mask(vk::ColorComponentFlags::RGBA)
+                .blend_enable(bs.blend_enable)
+                .src_color_blend_factor(bs.source_color.into())
+                .dst_color_blend_factor(bs.destination_color.into())
+                .color_blend_op(bs.color_op.into())
+                .src_alpha_blend_factor(bs.source_alpha.into())
+                .dst_alpha_blend_factor(bs.destination_alpha.into())
+                .alpha_blend_op(bs.alpha_op.into())
+                .build();
+            color_blend_attachments.push(blend_attachment);
+            num_blend_states = num_blend_states + 1;
+        }
+
+        if num_blend_states == 0 {
             color_blend_attachments.push(
                 vk::PipelineColorBlendAttachmentState::builder()
                     .blend_enable(false)
@@ -100,6 +137,7 @@ impl VulkanRasterPipeline {
                     .build(),
             );
         }
+
         let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
             .logic_op_enable(false)
             .logic_op(vk::LogicOp::COPY)
@@ -109,8 +147,8 @@ impl VulkanRasterPipeline {
 
         // Shader stages
         let mut shader_stages = Vec::new();
-        for i in 0..desc.num_shader_stages {
-            let shader = p_shader.get(desc.shader_stages[i as usize]).unwrap();
+        for handle in desc.shader_stages.iter() {
+            let shader = p_shader.get(*handle).context("Shader not found")?;
             let shader_stage = vk::PipelineShaderStageCreateInfo::builder()
                 .stage(shader.stage.into())
                 .module(shader.raw)

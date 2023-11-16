@@ -218,98 +218,13 @@ impl Default for RasterState {
         }
     }
 }
-
-pub struct RasterPipelineCreation {
+pub struct RasterPipelineCreateDesc<'a> {
+    pub vertex_input_bindings: Option<&'a [VertexInputBinding<'a>]>,
     pub raster_state: RasterState,
     pub depth_state: DepthState,
-    pub blend_states: [BlendState; MAX_RENDER_TARGETS],
-    pub num_blend_states: u8,
-    pub shader_stages: [Handle<Shader>; MAX_SHADER_STAGES],
-    pub num_shader_stages: u8,
+    pub blend_states: &'a [BlendState],
+    pub shader_stages: &'a [Handle<Shader>],
     pub render_pass_output: RenderPassOutput,
-}
-
-impl RasterPipelineCreation {
-    pub fn builder() -> RasterPipelineCreationBuilder {
-        RasterPipelineCreationBuilder::default()
-    }
-}
-
-#[derive(Default)]
-pub struct RasterPipelineCreationBuilder {
-    pub raster_state: RasterState,
-    pub depth_state: DepthState,
-    pub blend_states: Vec<BlendState>,
-    pub shader_stages: Vec<Handle<Shader>>,
-    pub render_pass_output: RenderPassOutput,
-}
-
-impl RasterPipelineCreationBuilder {
-    pub fn reset(mut self) -> Self {
-        self.raster_state = RasterState::default();
-        self.depth_state = DepthState::default();
-        self.blend_states.clear();
-        self.shader_stages.clear();
-        self.render_pass_output = RenderPassOutput::default();
-        self
-    }
-
-    pub fn raster_state(mut self, raster_state: RasterState) -> Self {
-        self.raster_state = raster_state;
-        self
-    }
-
-    pub fn depth_state(mut self, depth_state: DepthState) -> Self {
-        self.depth_state = depth_state;
-        self
-    }
-
-    pub fn add_blend_state(mut self, blend_states: BlendState) -> Self {
-        self.blend_states.push(blend_states);
-        self
-    }
-
-    pub fn add_blend_states(mut self, blend_states: &[BlendState]) -> Self {
-        self.blend_states.extend_from_slice(blend_states);
-        self
-    }
-
-    pub fn add_shader_stage(mut self, shader_stages: Handle<Shader>) -> Self {
-        self.shader_stages.push(shader_stages);
-        self
-    }
-
-    pub fn add_shader_stages(mut self, shader_stages: &[Handle<Shader>]) -> Self {
-        self.shader_stages.extend_from_slice(shader_stages);
-        self
-    }
-
-    pub fn render_pass_output(mut self, render_pass_output: RenderPassOutput) -> Self {
-        self.render_pass_output = render_pass_output;
-        self
-    }
-
-    pub fn build(self) -> RasterPipelineCreation {
-        let mut blend_states = [BlendState::default(); MAX_RENDER_TARGETS];
-        for (i, blend_state) in self.blend_states.iter().enumerate() {
-            blend_states[i] = *blend_state;
-        }
-
-        let mut shader_stages = [Default::default(); MAX_SHADER_STAGES];
-        for (i, shader_stage) in self.shader_stages.iter().enumerate() {
-            shader_stages[i] = *shader_stage;
-        }
-
-        RasterPipelineCreation {
-            raster_state: self.raster_state,
-            depth_state: self.depth_state,
-            blend_states,
-            num_blend_states: self.blend_states.len() as u8,
-            shader_stages,
-            num_shader_stages: self.shader_stages.len() as u8,
-            render_pass_output: self.render_pass_output,
-        }
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -455,6 +370,17 @@ pub struct QueuePresentDesc<'a> {
     pub wait_semaphores: &'a [Handle<Semaphore>],
     pub swapchain: Handle<Swapchain>,
     pub image_index: u32,
+}
+
+pub struct VertexInputBinding<'a> {
+    pub stride: usize,
+    pub attributes: &'a [VertexInputAttribute],
+    pub input_rate: VertexInputRate,
+}
+
+pub struct VertexInputAttribute {
+    pub offset: usize,
+    pub format: Format,
 }
 
 macro_rules! define_rhi_resources {

@@ -400,7 +400,7 @@ impl RHI for VulkanRHI {
     fn create_raster_pipeline(
         &mut self,
         device: Handle<Device>,
-        creation: &RasterPipelineCreation,
+        creation: &RasterPipelineCreateDesc,
     ) -> Result<Handle<RasterPipeline>> {
         let device = self.res_pool.device.get_mut(device).context("Device not found.")?;
         let render_pass = device.get_or_create_render_pass(&creation.render_pass_output.into())?;

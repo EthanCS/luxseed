@@ -122,12 +122,22 @@ pub trait RHI {
     ) -> Result<Handle<Shader>>;
     fn destroy_shader_module(&mut self, shader_module: Handle<Shader>) -> Result<()>;
 
-    // Pipeline
+    /// Creates a new raster pipeline with the given description and returns a handle to it.
+    ///
+    /// # Arguments
+    ///
+    /// * `device` - A handle to the device to create the pipeline on.
+    /// * `desc` - A reference to the description of the pipeline to create.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a handle to the created pipeline if successful, or an error message otherwise.
     fn create_raster_pipeline(
         &mut self,
         device: Handle<Device>,
-        desc: &RasterPipelineCreation,
+        desc: &RasterPipelineCreateDesc,
     ) -> Result<Handle<RasterPipeline>>;
+    
     fn destroy_raster_pipeline(&mut self, raster_pipeline: Handle<RasterPipeline>) -> Result<()>;
 
     // Render pass

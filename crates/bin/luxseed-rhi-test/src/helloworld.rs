@@ -25,13 +25,14 @@ impl App {
             .rhi
             .create_raster_pipeline(
                 sys.device,
-                &RasterPipelineCreation::builder()
-                    .add_shader_stages(&[vs, fs])
-                    .add_blend_states(&[BlendState::default()])
-                    .render_pass_output(sys.swapchain_output)
-                    .raster_state(RasterState::default())
-                    .depth_state(DepthState::default())
-                    .build(),
+                &RasterPipelineCreateDesc {
+                    vertex_input_bindings: None,
+                    shader_stages: &[vs, fs],
+                    render_pass_output: sys.swapchain_output,
+                    blend_states: &[BlendState::default()],
+                    raster_state: RasterState::default(),
+                    depth_state: DepthState::default(),
+                },
             )
             .unwrap();
         let command_pool = sys.rhi.create_command_pool(sys.graphics_queue).unwrap();
