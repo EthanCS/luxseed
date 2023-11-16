@@ -50,55 +50,36 @@ impl App {
     }
 
     pub fn render(&mut self, window: &Window) -> anyhow::Result<()> {
-        let valid = self.sys.begin_frame(window.inner_size().width, window.inner_size().height)?;
+        let width = window.inner_size().width;
+        let height = window.inner_size().height;
 
-        if !valid {
-            return Ok(());
+        if self.sys.begin_frame(width, height)? {
+            let cb = self.command_buffers[self.sys.frame];
+            self.sys.rhi.reset_command_buffer(cb, false)?;
+            self.sys.rhi.cmd_begin(cb)?;
+            let rp = self.sys.swapchain_render_pass;
+            let fb = self.sys.get_swapchain_framebuffer();
+            let cv = ClearColor::new([0.0, 0.0, 0.0, 1.0]);
+            self.sys.rhi.cmd_begin_render_pass(cb, rp, fb, Some(&[cv]), None)?;
+            self.sys.rhi.cmd_bind_raster_pipeline(cb, self.pipeline)?;
+            self.sys.rhi.cmd_set_viewport(cb, 0.0, 0.0, width as f32, height as f32, 0.0, 1.0)?;
+            self.sys.rhi.cmd_set_scissor(cb, 0, 0, width, height)?;
+            self.sys.rhi.cmd_draw(cb, 3, 1, 0, 0)?;
+            self.sys.rhi.cmd_end_render_pass(cb)?;
+            self.sys.rhi.cmd_end(cb)?;
+            self.sys.rhi.queue_submit(
+                self.sys.graphics_queue,
+                &QueueSubmitDesc {
+                    wait_semaphore: &[self.sys.get_image_available_semaphore()],
+                    wait_stage: &[PipelineStage::ColorAttachmentOutput],
+                    command_buffer: &[cb],
+                    finish_semaphore: &[self.sys.get_render_finished_semaphore()],
+                    fence: Some(self.sys.get_in_flight_fence()),
+                },
+            )?;
+            self.sys.end_frame(self.resize, width, height)?;
+            self.resize = false;
         }
-
-        let cb = self.command_buffers[self.sys.frame];
-
-        self.sys.rhi.reset_command_buffer(cb, false)?;
-        self.sys.rhi.cmd_begin(cb)?;
-        self.sys.rhi.cmd_begin_render_pass(
-            cb,
-            self.sys.swapchain_render_pass,
-            self.sys.get_swapchain_framebuffer(),
-            Some(&[ClearColor::new([0.0, 0.0, 0.0, 1.0])]),
-            None,
-        )?;
-        self.sys.rhi.cmd_bind_raster_pipeline(cb, self.pipeline)?;
-        self.sys.rhi.cmd_set_viewport(
-            cb,
-            0.0,
-            0.0,
-            window.inner_size().width as f32,
-            window.inner_size().height as f32,
-            0.0,
-            1.0,
-        )?;
-        self.sys.rhi.cmd_set_scissor(
-            cb,
-            0,
-            0,
-            window.inner_size().width,
-            window.inner_size().height,
-        )?;
-        self.sys.rhi.cmd_draw(cb, 3, 1, 0, 0)?;
-        self.sys.rhi.cmd_end_render_pass(cb)?;
-        self.sys.rhi.cmd_end(cb)?;
-        self.sys.rhi.queue_submit(
-            self.sys.graphics_queue,
-            &QueueSubmitDesc {
-                wait_semaphore: &[self.sys.get_image_available_semaphore()],
-                wait_stage: &[PipelineStage::ColorAttachmentOutput],
-                command_buffer: &[self.command_buffers[self.sys.frame]],
-                finish_semaphore: &[self.sys.get_render_finished_semaphore()],
-                fence: Some(self.sys.get_in_flight_fence()),
-            },
-        )?;
-
-        self.sys.end_frame(self.resize, window.inner_size().width, window.inner_size().height)?;
 
         Ok(())
     }

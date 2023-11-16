@@ -123,10 +123,11 @@ impl RenderSystem {
             None,
         )?;
 
-        // if image_index.1 {
-        //     self.recreate_swapchain(width, height)?;
-        //     return Ok(false);
-        // }
+        if image_index.0 == usize::MAX {
+            self.recreate_swapchain(width, height)?;
+            return Ok(false);
+        }
+
         self.image_index = image_index.0 as usize;
         self.rhi.reset_fences(&[self.get_in_flight_fence()])?;
 
@@ -134,7 +135,7 @@ impl RenderSystem {
     }
 
     pub fn end_frame(&mut self, recreate_swapchain: bool, width: u32, height: u32) -> Result<()> {
-        let result = self.rhi.queue_present(
+        let suboptimal = self.rhi.queue_present(
             self.graphics_queue,
             &QueuePresentDesc {
                 swapchain: self.swapchain,
@@ -143,7 +144,7 @@ impl RenderSystem {
             },
         )?;
 
-        if !result || recreate_swapchain {
+        if suboptimal || recreate_swapchain {
             self.recreate_swapchain(width, height)?;
         }
 

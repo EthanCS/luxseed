@@ -1,9 +1,7 @@
 use ash::vk;
 
 use crate::{
-    define::{
-        ClearColor, ClearDepthStencil, RenderPassOutput, StencilOpState, TextureViewCreateDesc,
-    },
+    define::{ClearColor, ClearDepthStencil, RenderPassOutput, StencilOpState},
     enums::*,
 };
 

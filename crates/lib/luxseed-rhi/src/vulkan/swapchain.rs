@@ -169,17 +169,21 @@ impl VulkanSwapchain {
         timeout: u64,
         semaphore: &VulkanSemaphore,
         fence: Option<&VulkanFence>,
-    ) -> Result<(usize, bool)> {
+    ) -> Result<(usize, bool), vk::Result> {
         let fence = if let Some(fence) = fence { fence.raw } else { vk::Fence::null() };
-        let image_index = unsafe {
+        let ret = unsafe {
             self.loader.as_ref().unwrap().acquire_next_image(
                 self.raw,
                 timeout,
                 semaphore.raw,
                 fence,
-            )?
+            )
         };
-        Ok((image_index.0 as usize, image_index.1))
+        match ret {
+            Ok((image_index, suboptimal)) => Ok((image_index as usize, suboptimal)),
+            Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => Ok((usize::MAX, false)),
+            Err(err_code) => Err(err_code),
+        }
     }
 
     pub fn destroy(&mut self) {

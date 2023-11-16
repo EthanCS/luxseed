@@ -306,7 +306,7 @@ impl RHI for VulkanRHI {
         } else {
             None
         };
-        swapchain.acquire_next_image(timeout, semaphore, fence)
+        Ok(swapchain.acquire_next_image(timeout, semaphore, fence)?)
     }
 
     fn get_swapchain_back_buffer(

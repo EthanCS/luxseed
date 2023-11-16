@@ -45,7 +45,19 @@ pub trait RHI {
     fn get_queue(&mut self, device: Handle<Device>, queue_type: QueueType)
         -> Result<Handle<Queue>>;
     fn queue_submit(&self, handle: Handle<Queue>, desc: &QueueSubmitDesc) -> Result<()>;
+
+    /// Presents the swapchain.
+    ///
+    /// # Arguments
+    ///
+    /// * `handle` - A handle to the queue.
+    /// * `desc` - A description of the present operation.
+    ///
+    /// # Returns
+    ///
+    /// A boolean indicating whether the swapchain is suboptimal.
     fn queue_present(&self, handle: Handle<Queue>, desc: &QueuePresentDesc) -> Result<bool>;
+
     fn wait_queue_idle(&self, handle: Handle<Queue>) -> Result<()>;
 
     // Surface
@@ -70,7 +82,7 @@ pub trait RHI {
     ///
     /// # Returns
     ///
-    /// A tuple containing the index of the acquired image and a boolean indicating whether the swapchain is suboptimal.
+    /// A tuple containing the index of the acquired image (`usize::MAX` means swapchain is out of date) and a boolean indicating whether the swapchain is suboptimal.
     fn acquire_next_image(
         &self,
         handle: Handle<Swapchain>,
