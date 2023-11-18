@@ -275,3 +275,22 @@ pub enum VertexInputRate {
     Vertex,
     Instance,
 }
+
+#[derive(Clone, Copy)]
+pub enum BufferUsage {
+    TransferSrc,
+    TransferDst,
+    UniformTexel,
+    StorageTexel,
+    Uniform,
+    Storage,
+    Index,
+    Vertex,
+    Indirect,
+}
+
+#[derive(Clone, Copy)]
+pub enum SharingMode {
+    Exclusive,
+    Concurrent,
+}

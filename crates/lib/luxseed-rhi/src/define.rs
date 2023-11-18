@@ -383,6 +383,14 @@ pub struct VertexInputAttribute {
     pub format: Format,
 }
 
+pub struct BufferCreateDesc<'a> {
+    pub name: &'a str,
+    pub size: usize,
+    pub usage: BufferUsage,
+    pub sharing_mode: SharingMode,
+    pub initial_data: Option<&'a [u8]>,
+}
+
 macro_rules! define_rhi_resources {
     ($($name:ident),*) => {
         $(#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -405,5 +413,6 @@ define_rhi_resources!(
     CommandPool,
     CommandBuffer,
     Semaphore,
-    Fence
+    Fence,
+    Buffer
 );

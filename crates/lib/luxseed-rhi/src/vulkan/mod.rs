@@ -1,3 +1,4 @@
+pub mod buffer;
 pub mod command;
 pub mod device;
 pub mod framebuffer;
@@ -11,10 +12,9 @@ pub mod swapchain;
 pub mod sync;
 pub mod util;
 
-use std::ffi::CString;
-
 use anyhow::Context;
 use anyhow::Result;
+use std::ffi::CString;
 
 use crate::define::*;
 use crate::define_resource_pool;
@@ -22,12 +22,11 @@ use crate::enums::*;
 use crate::pool::*;
 use crate::{pool::Pool, RHICreation, RHI};
 
+use self::buffer::*;
 use self::command::*;
 use self::device::*;
 use self::framebuffer::*;
-use self::image::VulkanImage;
-use self::image::VulkanImageView;
-use self::image::VulkanImageViewDesc;
+use self::image::*;
 use self::pipeline::VulkanRasterPipeline;
 use self::render_pass::VulkanRenderPass;
 use self::shader::VulkanShader;
@@ -51,7 +50,8 @@ define_resource_pool!(
     (VulkanCommandPool, command_pool, 4),
     (VulkanCommandBuffer, command_buffer, 8),
     (VulkanFence, fence, 4),
-    (VulkanSemaphore, semaphore, 4)
+    (VulkanSemaphore, semaphore, 4),
+    (VulkanBuffer, buffer, 32)
 );
 
 pub struct VulkanRHI {
@@ -395,6 +395,17 @@ impl RHI for VulkanRHI {
             self.res_pool.shader_module.free(handle);
         }
         Ok(())
+    }
+
+    fn create_buffer(
+        &mut self,
+        device: Handle<Device>,
+        desc: &BufferCreateDesc,
+    ) -> Result<Handle<Buffer>> {
+        let device = self.res_pool.device.get(device).context("Device not found.")?;
+        let item = self.res_pool.buffer.malloc();
+        item.1.init(device, desc)?;
+        Ok(item.0)
     }
 
     fn create_raster_pipeline(

@@ -362,3 +362,28 @@ impl From<VertexInputRate> for vk::VertexInputRate {
         }
     }
 }
+
+impl From<BufferUsage> for vk::BufferUsageFlags {
+    fn from(value: BufferUsage) -> Self {
+        match value {
+            BufferUsage::TransferSrc => vk::BufferUsageFlags::TRANSFER_SRC,
+            BufferUsage::TransferDst => vk::BufferUsageFlags::TRANSFER_DST,
+            BufferUsage::UniformTexel => vk::BufferUsageFlags::UNIFORM_TEXEL_BUFFER,
+            BufferUsage::StorageTexel => vk::BufferUsageFlags::STORAGE_TEXEL_BUFFER,
+            BufferUsage::Uniform => vk::BufferUsageFlags::UNIFORM_BUFFER,
+            BufferUsage::Storage => vk::BufferUsageFlags::STORAGE_BUFFER,
+            BufferUsage::Index => vk::BufferUsageFlags::INDEX_BUFFER,
+            BufferUsage::Vertex => vk::BufferUsageFlags::VERTEX_BUFFER,
+            BufferUsage::Indirect => vk::BufferUsageFlags::INDIRECT_BUFFER,
+        }
+    }
+}
+
+impl From<SharingMode> for vk::SharingMode {
+    fn from(value: SharingMode) -> Self {
+        match value {
+            SharingMode::Exclusive => vk::SharingMode::EXCLUSIVE,
+            SharingMode::Concurrent => vk::SharingMode::CONCURRENT,
+        }
+    }
+}
