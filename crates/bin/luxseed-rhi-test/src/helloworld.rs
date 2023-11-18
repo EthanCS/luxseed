@@ -4,6 +4,12 @@ use winit::window::Window;
 
 use crate::render_system::RenderSystem;
 
+#[derive(Debug, Clone, Copy)]
+pub struct Vertex {
+    pub position: [f32; 2],
+    pub color: [f32; 3],
+}
+
 pub struct App {
     pub sys: RenderSystem,
     pub resize: bool,
@@ -12,6 +18,14 @@ pub struct App {
     pub pipeline: Handle<RasterPipeline>,
     pub command_pool: Handle<CommandPool>,
     pub command_buffers: Vec<Handle<CommandBuffer>>,
+    pub vertex_buffer: Handle<Buffer>,
+    pub vertices: Vec<Vertex>,
+}
+
+fn as_byte_slice_unchecked<T: Copy>(v: &[T]) -> &[u8] {
+    unsafe {
+        std::slice::from_raw_parts(v.as_ptr() as *const u8, v.len() * std::mem::size_of::<T>())
+    }
 }
 
 impl App {
@@ -21,12 +35,35 @@ impl App {
         let vs = sys.compile_shader("hello", VERTEX_SHADER, ShaderStage::Vertex, "main")?;
         let fs = sys.compile_shader("hello", FRAGMENT_SHADER, ShaderStage::Fragment, "main")?;
 
+        let mut vertices = Vec::new();
+        vertices.push(Vertex { position: [0.0, -0.5], color: [1.0, 1.0, 1.0] });
+        vertices.push(Vertex { position: [0.5, 0.5], color: [0.0, 1.0, 0.0] });
+        vertices.push(Vertex { position: [-0.5, 0.5], color: [0.0, 0.0, 1.0] });
+
+        let vertex_buffer = sys.rhi.create_buffer(
+            sys.device,
+            &BufferCreateDesc {
+                name: "Triangle",
+                size: vertices.len() * std::mem::size_of::<Vertex>(),
+                usage: BufferUsage::Vertex,
+                memory: MemoryLocation::CpuToGpu,
+                initial_data: Some(as_byte_slice_unchecked(&vertices)),
+            },
+        )?;
+
         let pipeline = sys
             .rhi
             .create_raster_pipeline(
                 sys.device,
                 &RasterPipelineCreateDesc {
-                    vertex_input_bindings: None,
+                    vertex_input_bindings: Some(&[VertexInputBinding {
+                        stride: std::mem::size_of::<Vertex>(),
+                        input_rate: VertexInputRate::Vertex,
+                        attributes: &[
+                            VertexInputAttribute { offset: 0, format: Format::R32G32_SFLOAT },
+                            VertexInputAttribute { offset: 8, format: Format::R32G32B32_SFLOAT },
+                        ],
+                    }]),
                     shader_stages: &[vs, fs],
                     render_pass_output: sys.swapchain_output,
                     blend_states: &[BlendState::default()],
@@ -43,7 +80,17 @@ impl App {
             command_buffers.push(cb);
         }
 
-        Ok(Self { sys, vs, fs, pipeline, command_pool, command_buffers, resize: false })
+        Ok(Self {
+            sys,
+            vs,
+            fs,
+            pipeline,
+            command_pool,
+            command_buffers,
+            resize: false,
+            vertex_buffer,
+            vertices,
+        })
     }
 
     pub fn render(&mut self, window: &Window) -> anyhow::Result<()> {
@@ -61,7 +108,8 @@ impl App {
             self.sys.rhi.cmd_bind_raster_pipeline(cb, self.pipeline)?;
             self.sys.rhi.cmd_set_viewport(cb, 0.0, 0.0, width as f32, height as f32, 0.0, 1.0)?;
             self.sys.rhi.cmd_set_scissor(cb, 0, 0, width, height)?;
-            self.sys.rhi.cmd_draw(cb, 3, 1, 0, 0)?;
+            self.sys.rhi.cmd_bind_vertex_buffers(cb, 0, &[self.vertex_buffer], &[0])?;
+            self.sys.rhi.cmd_draw(cb, self.vertices.len() as u32, 1, 0, 0)?;
             self.sys.rhi.cmd_end_render_pass(cb)?;
             self.sys.rhi.cmd_end(cb)?;
             self.sys.rhi.queue_submit(
@@ -84,6 +132,7 @@ impl App {
     pub fn destroy(&mut self) {
         self.sys.rhi.wait_idle(self.sys.device).unwrap();
 
+        self.sys.rhi.destroy_buffer(self.vertex_buffer).unwrap();
         self.sys.rhi.destroy_command_pool(self.command_pool).unwrap();
         self.sys.rhi.destroy_shader_module(self.vs).unwrap();
         self.sys.rhi.destroy_shader_module(self.fs).unwrap();
@@ -96,23 +145,14 @@ impl App {
 const VERTEX_SHADER: &str = "
 #version 450
 
+layout(location = 0) in vec2 inPosition;
+layout(location = 1) in vec3 inColor;
+
 layout(location = 0) out vec3 fragColor;
 
-vec2 positions[3] = vec2[](
-    vec2(0.0, -0.5),
-    vec2(0.5, 0.5),
-    vec2(-0.5, 0.5)
-);
-
-vec3 colors[3] = vec3[](
-    vec3(1.0, 0.0, 0.0),
-    vec3(0.0, 1.0, 0.0),
-    vec3(0.0, 0.0, 1.0)
-);
-
 void main() {
-    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
-    fragColor = colors[gl_VertexIndex];
+    gl_Position = vec4(inPosition, 0.0, 1.0);
+    fragColor = inColor;
 }
 ";
 

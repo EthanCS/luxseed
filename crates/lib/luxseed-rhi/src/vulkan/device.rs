@@ -1,7 +1,7 @@
-use std::{collections::HashMap, ffi::CStr};
-
-use anyhow::Context;
+use anyhow::{Context, Result};
 use ash::{extensions::khr, vk};
+use gpu_allocator::vulkan::*;
+use std::{collections::HashMap, ffi::CStr};
 
 use crate::{
     define::*,
@@ -80,6 +80,7 @@ pub struct VulkanDevice {
     pub present_queue: Option<Handle<Queue>>,
     pub render_pass_cache: HashMap<VulkanRenderPassOutput, ash::vk::RenderPass>,
     pub framebuffer_cache: HashMap<VulkanFramebufferDesc, ash::vk::Framebuffer>,
+    pub allocator: Option<Allocator>,
 }
 impl_handle!(VulkanDevice, Device, handle);
 
@@ -167,15 +168,32 @@ impl VulkanDevice {
         let mut physical_features = vk::PhysicalDeviceFeatures2::builder().build();
         unsafe { instance.raw.get_physical_device_features2(adapter.raw, &mut physical_features) };
 
+        // gpu-allocator need this feature
+        let mut buffer_device_address = vk::PhysicalDeviceBufferDeviceAddressFeatures::builder()
+            .buffer_device_address(true)
+            .build();
+
         // Create device info
         let device_create_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(&queue_infos)
             .enabled_extension_names(&device_extensions)
             .push_next(&mut physical_features)
+            .push_next(&mut buffer_device_address)
             .build();
 
         // Create device
         let device = unsafe { instance.raw.create_device(adapter.raw, &device_create_info, None)? };
+
+        // Create allocator
+        let allocator_create_desc = AllocatorCreateDesc {
+            instance: instance.raw.clone(),
+            device: device.clone(),
+            physical_device: adapter.raw,
+            debug_settings: Default::default(),
+            buffer_device_address: true,
+            allocation_sizes: Default::default(),
+        };
+        self.allocator = Some(Allocator::new(&allocator_create_desc)?);
 
         self.raw = Some(device);
         self.adapter = Some(adapter.clone());
@@ -208,35 +226,33 @@ impl VulkanDevice {
     }
 
     #[inline]
-    pub fn get_queue(&self, _type: QueueType) -> anyhow::Result<Handle<Queue>> {
+    pub fn get_queue(&self, _type: QueueType) -> Result<Handle<Queue>> {
         match _type {
-            QueueType::Graphics => {
-                self.graphics_queue.ok_or_else(|| anyhow::anyhow!("Graphics queue not found."))
-            }
-            QueueType::Compute => {
-                self.compute_queue.ok_or_else(|| anyhow::anyhow!("Compute queue not found"))
-            }
-            QueueType::Transfer => {
-                self.transfer_queue.ok_or_else(|| anyhow::anyhow!("Transfer queue not found"))
-            }
-            QueueType::Present => {
-                self.present_queue.ok_or_else(|| anyhow::anyhow!("Present queue not found"))
-            }
+            QueueType::Graphics => self.graphics_queue.context("Graphics queue not found."),
+            QueueType::Compute => self.compute_queue.context("Compute queue not found"),
+            QueueType::Transfer => self.transfer_queue.context("Transfer queue not found"),
+            QueueType::Present => self.present_queue.context("Present queue not found"),
         }
     }
 
     pub fn destroy(&mut self) {
+        if let Some(allocator) = self.allocator.take() {
+            drop(allocator);
+        }
+
         if let Some(handle) = self.raw.as_ref() {
             unsafe {
                 handle.destroy_device(None);
             }
         }
+
         self.raw = None;
-        self.adapter = Default::default();
+        self.adapter = None;
         self.graphics_queue = None;
         self.compute_queue = None;
         self.transfer_queue = None;
         self.present_queue = None;
+        self.allocator = None;
     }
 }
 

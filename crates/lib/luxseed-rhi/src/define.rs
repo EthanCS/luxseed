@@ -388,7 +388,7 @@ pub struct BufferCreateDesc<'a> {
     pub name: &'a str,
     pub size: usize,
     pub usage: BufferUsage,
-    pub sharing_mode: SharingMode,
+    pub memory: MemoryLocation,
     pub initial_data: Option<&'a [u8]>,
 }
 

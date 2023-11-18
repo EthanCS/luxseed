@@ -290,7 +290,9 @@ pub enum BufferUsage {
 }
 
 #[derive(Clone, Copy)]
-pub enum SharingMode {
-    Exclusive,
-    Concurrent,
+pub enum MemoryLocation {
+    Unknown,
+    GpuOnly,
+    CpuToGpu,
+    GpuToCpu,
 }

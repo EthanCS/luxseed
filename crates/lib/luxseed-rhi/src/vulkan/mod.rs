@@ -385,10 +385,20 @@ impl RHI for VulkanRHI {
         device: Handle<Device>,
         desc: &BufferCreateDesc,
     ) -> Result<Handle<Buffer>> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
+        let device = self.res_pool.device.get_mut(device).context("Device not found.")?;
         let item = self.res_pool.buffer.malloc();
         item.1.init(device, desc)?;
         Ok(item.0)
+    }
+
+    fn destroy_buffer(&mut self, buffer: Handle<Buffer>) -> Result<()> {
+        if let Some(b) = self.res_pool.buffer.get_mut(buffer) {
+            let device =
+                self.res_pool.device.get_mut(b.device.unwrap()).context("Device not found.")?;
+            b.destroy(device)?;
+            self.res_pool.buffer.free(buffer);
+        }
+        Ok(())
     }
 
     fn create_raster_pipeline(
@@ -600,6 +610,23 @@ impl RHI for VulkanRHI {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
         let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
         cb.set_viewport(device, x, y, width, height, min_depth, max_depth)
+    }
+
+    fn cmd_bind_vertex_buffers(
+        &self,
+        cb: Handle<CommandBuffer>,
+        first_binding: u32,
+        buffers: &[Handle<Buffer>],
+        offsets: &[u64],
+    ) -> Result<()> {
+        let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
+        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
+        let buffers =
+            buffers.iter().map(|b| self.res_pool.buffer.get(*b).unwrap().raw).collect::<Vec<_>>();
+        unsafe {
+            device.raw().cmd_bind_vertex_buffers(cb.raw, first_binding, &buffers, &offsets);
+        }
+        Ok(())
     }
 
     fn cmd_draw(

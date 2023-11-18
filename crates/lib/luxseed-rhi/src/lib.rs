@@ -128,6 +128,8 @@ pub trait RHI {
         desc: &BufferCreateDesc,
     ) -> Result<Handle<Buffer>>;
 
+    fn destroy_buffer(&mut self, buffer: Handle<Buffer>) -> Result<()>;
+
     /// Creates a new raster pipeline with the given description and returns a handle to it.
     ///
     /// # Arguments
@@ -212,6 +214,13 @@ pub trait RHI {
         y: u32,
         width: u32,
         height: u32,
+    ) -> Result<()>;
+    fn cmd_bind_vertex_buffers(
+        &self,
+        cb: Handle<CommandBuffer>,
+        first_binding: u32,
+        buffers: &[Handle<Buffer>],
+        offsets: &[u64],
     ) -> Result<()>;
     fn cmd_draw(
         &self,

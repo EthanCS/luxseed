@@ -379,11 +379,13 @@ impl From<BufferUsage> for vk::BufferUsageFlags {
     }
 }
 
-impl From<SharingMode> for vk::SharingMode {
-    fn from(value: SharingMode) -> Self {
+impl From<MemoryLocation> for gpu_allocator::MemoryLocation {
+    fn from(value: MemoryLocation) -> Self {
         match value {
-            SharingMode::Exclusive => vk::SharingMode::EXCLUSIVE,
-            SharingMode::Concurrent => vk::SharingMode::CONCURRENT,
+            MemoryLocation::CpuToGpu => gpu_allocator::MemoryLocation::CpuToGpu,
+            MemoryLocation::GpuToCpu => gpu_allocator::MemoryLocation::GpuToCpu,
+            MemoryLocation::GpuOnly => gpu_allocator::MemoryLocation::GpuOnly,
+            MemoryLocation::Unknown => gpu_allocator::MemoryLocation::Unknown,
         }
     }
 }
