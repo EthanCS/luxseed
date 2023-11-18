@@ -19,42 +19,42 @@ use super::{
     sync::{VulkanFence, VulkanSemaphore},
 };
 
-#[derive(Default)]
+#[derive(Clone)]
 pub struct VulkanAdapter {
     pub raw: vk::PhysicalDevice,
-    pub handle: Option<Handle<Adapter>>,
-    pub adapter_info: Option<AdapterInfo>,
     pub properties: vk::PhysicalDeviceProperties,
     pub features: vk::PhysicalDeviceFeatures,
     pub memory_properties: vk::PhysicalDeviceMemoryProperties,
     pub queue_family_properties: Vec<vk::QueueFamilyProperties>,
 }
-impl_handle!(VulkanAdapter, Adapter, handle);
 
 impl VulkanAdapter {
-    pub fn init(&mut self, instance: &VulkanInstance, physical_device: vk::PhysicalDevice) {
-        self.raw = physical_device;
-        unsafe {
-            let instance = &instance.raw;
-            self.properties = instance.get_physical_device_properties(physical_device);
-            self.features = instance.get_physical_device_features(physical_device);
-            self.memory_properties =
-                instance.get_physical_device_memory_properties(physical_device);
-            self.queue_family_properties =
-                instance.get_physical_device_queue_family_properties(physical_device);
+    pub fn new(instance: &VulkanInstance, physical_device: vk::PhysicalDevice) -> Self {
+        let properties = unsafe { instance.raw.get_physical_device_properties(physical_device) };
+        let features = unsafe { instance.raw.get_physical_device_features(physical_device) };
+        let memory_properties =
+            unsafe { instance.raw.get_physical_device_memory_properties(physical_device) };
+        let queue_family_properties =
+            unsafe { instance.raw.get_physical_device_queue_family_properties(physical_device) };
+
+        Self {
+            raw: physical_device,
+            properties,
+            features,
+            memory_properties,
+            queue_family_properties,
         }
-        self.adapter_info = Some(AdapterInfo::from_vulkan(self.properties));
     }
 }
 
 impl AdapterInfo {
-    fn from_vulkan(properties: vk::PhysicalDeviceProperties) -> Self {
+    pub fn from_vulkan(adapter: &VulkanAdapter) -> Self {
         Self {
-            api_version: (properties.api_version),
-            driver_version: (properties.driver_version),
-            vendor_id: (properties.vendor_id),
-            device_id: (properties.device_id),
-            device_type: match properties.device_type {
+            api_version: (adapter.properties.api_version),
+            driver_version: (adapter.properties.driver_version),
+            vendor_id: (adapter.properties.vendor_id),
+            device_id: (adapter.properties.device_id),
+            device_type: match adapter.properties.device_type {
                 vk::PhysicalDeviceType::OTHER => AdapterType::Other,
                 vk::PhysicalDeviceType::INTEGRATED_GPU => AdapterType::IntegratedGPU,
                 vk::PhysicalDeviceType::DISCRETE_GPU => AdapterType::DiscreteGPU,
@@ -63,7 +63,7 @@ impl AdapterInfo {
                 _ => AdapterType::Other,
             },
             device_name: unsafe {
-                CStr::from_ptr(properties.device_name.as_ptr()).to_str().unwrap().to_owned()
+                CStr::from_ptr(adapter.properties.device_name.as_ptr()).to_str().unwrap().to_owned()
             },
         }
     }
@@ -73,7 +73,7 @@ impl AdapterInfo {
 pub struct VulkanDevice {
     pub handle: Option<Handle<Device>>,
     raw: Option<ash::Device>,
-    pub adapter: Option<Handle<Adapter>>,
+    pub adapter: Option<VulkanAdapter>,
     pub graphics_queue: Option<Handle<Queue>>,
     pub compute_queue: Option<Handle<Queue>>,
     pub transfer_queue: Option<Handle<Queue>>,
@@ -87,7 +87,7 @@ impl VulkanDevice {
     pub fn init(
         &mut self,
         instance: &VulkanInstance,
-        physical_device: &VulkanAdapter,
+        adapter: &VulkanAdapter,
         p_queue: &mut Pool<VulkanQueue>,
     ) -> anyhow::Result<()> {
         // Find Queue Family
@@ -96,7 +96,7 @@ impl VulkanDevice {
         let mut transfer_queue_family_index = u32::MAX;
         let mut compute_queue_index = u32::MAX;
 
-        for (i, q) in physical_device.queue_family_properties.iter().enumerate() {
+        for (i, q) in adapter.queue_family_properties.iter().enumerate() {
             if q.queue_count == 0 {
                 continue;
             }
@@ -150,7 +150,7 @@ impl VulkanDevice {
                 queue_infos.push(compute_queue);
             }
 
-            if transfer_queue_family_index < physical_device.queue_family_properties.len() as u32 {
+            if transfer_queue_family_index < adapter.queue_family_properties.len() as u32 {
                 let mut transfer_queue = vk::DeviceQueueCreateInfo::builder()
                     .queue_family_index(transfer_queue_family_index)
                     .queue_priorities(&[1.0])
@@ -165,9 +165,7 @@ impl VulkanDevice {
 
         // Enable all features
         let mut physical_features = vk::PhysicalDeviceFeatures2::builder().build();
-        unsafe {
-            instance.raw.get_physical_device_features2(physical_device.raw, &mut physical_features)
-        };
+        unsafe { instance.raw.get_physical_device_features2(adapter.raw, &mut physical_features) };
 
         // Create device info
         let device_create_info = vk::DeviceCreateInfo::builder()
@@ -177,11 +175,10 @@ impl VulkanDevice {
             .build();
 
         // Create device
-        let device =
-            unsafe { instance.raw.create_device(physical_device.raw, &device_create_info, None)? };
+        let device = unsafe { instance.raw.create_device(adapter.raw, &device_create_info, None)? };
 
         self.raw = Some(device);
-        self.adapter = physical_device.get_handle();
+        self.adapter = Some(adapter.clone());
 
         // Get queue
         {
@@ -235,7 +232,7 @@ impl VulkanDevice {
             }
         }
         self.raw = None;
-        self.adapter = None;
+        self.adapter = Default::default();
         self.graphics_queue = None;
         self.compute_queue = None;
         self.transfer_queue = None;

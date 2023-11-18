@@ -1,7 +1,8 @@
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
-use crate::{enums::*, pool::Handle, MAX_RENDER_TARGETS, MAX_SHADER_STAGES};
+use crate::{enums::*, pool::Handle, MAX_RENDER_TARGETS};
 
+#[derive(Clone)]
 pub struct AdapterInfo {
     pub api_version: u32,
     pub driver_version: u32,
@@ -399,7 +400,6 @@ macro_rules! define_rhi_resources {
 }
 
 define_rhi_resources!(
-    Adapter,
     Device,
     Surface,
     Queue,

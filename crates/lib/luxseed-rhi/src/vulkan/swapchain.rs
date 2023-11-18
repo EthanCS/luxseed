@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use ash::{
     extensions::khr,
     vk::{self, SurfaceFormatKHR},
@@ -8,10 +8,7 @@ use crate::{
     define::{Device, Surface, Swapchain, SwapchainCreation, Texture},
     impl_handle,
     pool::{Handle, Handled, Pool},
-    vulkan::{
-        device::{VulkanAdapter, VulkanQueue},
-        surface::VulkanSurface,
-    },
+    vulkan::{device::VulkanQueue, surface::VulkanSurface},
 };
 
 use super::{
@@ -39,12 +36,13 @@ impl VulkanSwapchain {
         &mut self,
         instance: &VulkanInstance,
         device: &VulkanDevice,
-        adapter: &VulkanAdapter,
         surface: &VulkanSurface,
         queue: &VulkanQueue,
         desc: SwapchainCreation,
         p_texture: &mut Pool<VulkanImage>,
     ) -> Result<()> {
+        let adapter = device.adapter.as_ref().context("Adapter in none")?;
+
         let surface_supported = unsafe {
             surface.loader.as_ref().unwrap().get_physical_device_surface_support(
                 adapter.raw,

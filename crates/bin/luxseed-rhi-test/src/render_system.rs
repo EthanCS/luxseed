@@ -7,7 +7,6 @@ use winit::window::Window;
 
 pub struct RenderSystem {
     pub rhi: Box<dyn RHI>,
-    pub adapter: Handle<Adapter>,
     pub device: Handle<Device>,
     pub surface: Handle<Surface>,
     pub graphics_queue: Handle<Queue>,
@@ -37,8 +36,7 @@ impl RenderSystem {
             },
         )?;
         let format = Format::B8G8R8A8_SRGB;
-        let adapter = rhi.enum_adapters()[0];
-        let device = rhi.create_device(adapter)?;
+        let device = rhi.create_device(0)?;
         let surface = rhi.create_surface(SurfaceCreateDesc {
             raw_display_handle: window.raw_display_handle(),
             raw_window_handle: window.raw_window_handle(),
@@ -94,7 +92,6 @@ impl RenderSystem {
 
         Ok(Self {
             rhi,
-            adapter,
             device,
             surface,
             graphics_queue,

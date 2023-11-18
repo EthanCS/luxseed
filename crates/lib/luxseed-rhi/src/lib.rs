@@ -22,11 +22,10 @@ pub fn rhi_create(backend: BackendType, desc: RHICreation) -> Result<Box<dyn RHI
 
 pub trait RHI {
     // Info
-    fn enum_adapters(&self) -> &[Handle<Adapter>];
-    fn get_adapter_info(&self, adapter: Handle<Adapter>) -> Option<&AdapterInfo>;
+    fn enumerate_adapter_infos(&self) -> &[AdapterInfo];
 
     // Device
-    fn create_device(&mut self, adapter: Handle<Adapter>) -> Result<Handle<Device>>;
+    fn create_device(&mut self, adapter_index: usize) -> Result<Handle<Device>>;
     fn destroy_device(&mut self, device: Handle<Device>) -> Result<()>;
     fn wait_idle(&self, device: Handle<Device>) -> Result<()>;
 

@@ -36,7 +36,6 @@ use self::sync::*;
 
 define_resource_pool!(
     VulkanResourcePool,
-    (VulkanAdapter, adapter, 2),
     (VulkanDevice, device, 1),
     (VulkanQueue, queue, 4),
     (VulkanSurface, surface, 1),
@@ -57,26 +56,26 @@ define_resource_pool!(
 pub struct VulkanRHI {
     instance: instance::VulkanInstance,
     res_pool: VulkanResourcePool,
-    adapters: Vec<Handle<Adapter>>,
+    adapters: Vec<VulkanAdapter>,
+    adapter_infos: Vec<AdapterInfo>,
 }
 
 impl VulkanRHI {
     pub fn new(desc: RHICreation) -> Result<Self> {
         let instance = instance::VulkanInstance::new(desc)?;
-        let mut resource_pool = VulkanResourcePool::new();
 
         // Enumerate Adapters
-        let mut adapters: Vec<Handle<Adapter>> = Vec::new();
-        {
-            let raw_devices = unsafe { instance.raw.enumerate_physical_devices()? };
-            for raw_device in raw_devices {
-                let item = resource_pool.adapter.malloc();
-                item.1.init(&instance, raw_device);
-                adapters.push(item.0);
-            }
+        let mut adapters = Vec::new();
+        let mut adapter_infos = Vec::new();
+        let raw_devices = unsafe { instance.raw.enumerate_physical_devices()? };
+        for raw_device in raw_devices {
+            let a = VulkanAdapter::new(&instance, raw_device);
+            adapter_infos.push(AdapterInfo::from_vulkan(&a));
+            adapters.push(a);
         }
 
-        Ok(Self { instance, res_pool: resource_pool, adapters })
+        let resource_pool = VulkanResourcePool::new();
+        Ok(Self { instance, res_pool: resource_pool, adapters, adapter_infos })
     }
 
     fn get_device_handle_from_fences(&self, handles: &[Handle<Fence>]) -> Result<Handle<Device>> {
@@ -101,19 +100,12 @@ impl Drop for VulkanRHI {
 }
 
 impl RHI for VulkanRHI {
-    fn enum_adapters(&self) -> &[Handle<Adapter>] {
-        &self.adapters
+    fn enumerate_adapter_infos(&self) -> &[AdapterInfo] {
+        &self.adapter_infos
     }
 
-    fn get_adapter_info(&self, adapter: Handle<Adapter>) -> Option<&AdapterInfo> {
-        if let Some(a) = self.res_pool.adapter.get(adapter) {
-            return a.adapter_info.as_ref();
-        }
-        None
-    }
-
-    fn create_device(&mut self, adapter: Handle<Adapter>) -> Result<Handle<Device>> {
-        let adapter = self.res_pool.adapter.get(adapter).context("Adapter not found.")?;
+    fn create_device(&mut self, adapter_index: usize) -> Result<Handle<Device>> {
+        let adapter = self.adapters.get(adapter_index).context("Adapter not found.")?;
         let item = self.res_pool.device.malloc();
         item.1.init(&self.instance, adapter, &mut self.res_pool.queue)?;
         Ok(item.0)
@@ -249,19 +241,10 @@ impl RHI for VulkanRHI {
         desc: SwapchainCreation,
     ) -> Result<Handle<Swapchain>> {
         let device = self.res_pool.device.get(device).context("Device not found.")?;
-        let adapter: &VulkanAdapter = self.res_pool.adapter.get(device.adapter.unwrap()).unwrap();
         let surface: &VulkanSurface = self.res_pool.surface.get(desc.surface).unwrap();
         let queue: &VulkanQueue = self.res_pool.queue.get(device.graphics_queue.unwrap()).unwrap();
         let item = self.res_pool.swapchain.malloc();
-        item.1.init(
-            &self.instance,
-            device,
-            adapter,
-            surface,
-            queue,
-            desc,
-            &mut self.res_pool.texture,
-        )?;
+        item.1.init(&self.instance, device, surface, queue, desc, &mut self.res_pool.texture)?;
         Ok(item.0)
     }
 
