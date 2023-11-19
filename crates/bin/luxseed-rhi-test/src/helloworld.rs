@@ -45,7 +45,7 @@ impl App {
             &BufferCreateDesc {
                 name: "Triangle",
                 size: vertices.len() * std::mem::size_of::<Vertex>(),
-                usage: BufferUsage::Vertex,
+                usage: BufferUsage::VERTEX_BUFFER,
                 memory: MemoryLocation::CpuToGpu,
                 initial_data: Some(as_byte_slice_unchecked(&vertices)),
             },

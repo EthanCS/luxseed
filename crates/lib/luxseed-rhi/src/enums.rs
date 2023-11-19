@@ -1,3 +1,4 @@
+use bitflags::bitflags;
 use core::fmt;
 
 #[derive(Default, Clone, Copy)]
@@ -277,22 +278,24 @@ pub enum VertexInputRate {
 }
 
 #[derive(Clone, Copy)]
-pub enum BufferUsage {
-    TransferSrc,
-    TransferDst,
-    UniformTexel,
-    StorageTexel,
-    Uniform,
-    Storage,
-    Index,
-    Vertex,
-    Indirect,
-}
-
-#[derive(Clone, Copy)]
 pub enum MemoryLocation {
     Unknown,
     GpuOnly,
     CpuToGpu,
     GpuToCpu,
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct BufferUsage : u32 {
+        const TRANSFER_SRC = 0b1;
+        const TRANSFER_DST = 0b10;
+        const UNIFORM_TEXEL_BUFFER = 0b100;
+        const STORAGE_TEXEL_BUFFER = 0b1000;
+        const UNIFORM_BUFFER = 0b1_0000;
+        const STORAGE_BUFFER = 0b10_0000;
+        const INDEX_BUFFER = 0b100_0000;
+        const VERTEX_BUFFER = 0b1000_0000;
+        const INDIRECT_BUFFER = 0b1_0000_0000;
+    }
 }

@@ -365,17 +365,35 @@ impl From<VertexInputRate> for vk::VertexInputRate {
 
 impl From<BufferUsage> for vk::BufferUsageFlags {
     fn from(value: BufferUsage) -> Self {
-        match value {
-            BufferUsage::TransferSrc => vk::BufferUsageFlags::TRANSFER_SRC,
-            BufferUsage::TransferDst => vk::BufferUsageFlags::TRANSFER_DST,
-            BufferUsage::UniformTexel => vk::BufferUsageFlags::UNIFORM_TEXEL_BUFFER,
-            BufferUsage::StorageTexel => vk::BufferUsageFlags::STORAGE_TEXEL_BUFFER,
-            BufferUsage::Uniform => vk::BufferUsageFlags::UNIFORM_BUFFER,
-            BufferUsage::Storage => vk::BufferUsageFlags::STORAGE_BUFFER,
-            BufferUsage::Index => vk::BufferUsageFlags::INDEX_BUFFER,
-            BufferUsage::Vertex => vk::BufferUsageFlags::VERTEX_BUFFER,
-            BufferUsage::Indirect => vk::BufferUsageFlags::INDIRECT_BUFFER,
+        let mut ret = vk::BufferUsageFlags::empty();
+        if value.contains(BufferUsage::TRANSFER_SRC) {
+            ret |= vk::BufferUsageFlags::TRANSFER_SRC;
         }
+        if value.contains(BufferUsage::TRANSFER_DST) {
+            ret |= vk::BufferUsageFlags::TRANSFER_DST;
+        }
+        if value.contains(BufferUsage::UNIFORM_TEXEL_BUFFER) {
+            ret |= vk::BufferUsageFlags::UNIFORM_TEXEL_BUFFER;
+        }
+        if value.contains(BufferUsage::STORAGE_TEXEL_BUFFER) {
+            ret |= vk::BufferUsageFlags::STORAGE_TEXEL_BUFFER;
+        }
+        if value.contains(BufferUsage::UNIFORM_BUFFER) {
+            ret |= vk::BufferUsageFlags::UNIFORM_BUFFER;
+        }
+        if value.contains(BufferUsage::STORAGE_BUFFER) {
+            ret |= vk::BufferUsageFlags::STORAGE_BUFFER;
+        }
+        if value.contains(BufferUsage::INDEX_BUFFER) {
+            ret |= vk::BufferUsageFlags::INDEX_BUFFER;
+        }
+        if value.contains(BufferUsage::VERTEX_BUFFER) {
+            ret |= vk::BufferUsageFlags::VERTEX_BUFFER;
+        }
+        if value.contains(BufferUsage::INDIRECT_BUFFER) {
+            ret |= vk::BufferUsageFlags::INDIRECT_BUFFER;
+        }
+        ret
     }
 }
 
