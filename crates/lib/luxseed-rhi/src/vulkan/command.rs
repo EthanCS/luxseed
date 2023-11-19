@@ -1,9 +1,11 @@
 use anyhow::Ok;
 use ash::vk::{self};
+use smallvec::SmallVec;
 
 use crate::{
     define::{
-        ClearColor, ClearDepthStencil, CommandBuffer, CommandPool, Device, Framebuffer, RenderPass,
+        BufferCopyRegion, ClearColor, ClearDepthStencil, CommandBuffer, CommandPool, Device,
+        Framebuffer, RenderPass,
     },
     enums::*,
     impl_handle,
@@ -12,6 +14,7 @@ use crate::{
 };
 
 use super::{
+    buffer::VulkanBuffer,
     device::{VulkanDevice, VulkanQueue},
     framebuffer::VulkanFramebuffer,
     pipeline::VulkanRasterPipeline,
@@ -233,6 +236,22 @@ impl VulkanCommandBuffer {
             );
         }
         Ok(())
+    }
+
+    pub fn copy_buffer(
+        &self,
+        device: &VulkanDevice,
+        src: &VulkanBuffer,
+        dst: &VulkanBuffer,
+        regions: &[BufferCopyRegion],
+    ) {
+        let mut v = SmallVec::<[vk::BufferCopy; 4]>::new();
+        for region in regions {
+            v.push((*region).into());
+        }
+        unsafe {
+            device.raw().cmd_copy_buffer(self.raw, src.raw, dst.raw, &v);
+        }
     }
 
     pub fn reset(&self, device: &VulkanDevice, release: bool) -> anyhow::Result<()> {

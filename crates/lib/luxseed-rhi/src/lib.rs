@@ -57,7 +57,7 @@ pub trait RHI {
     /// A boolean indicating whether the swapchain is suboptimal.
     fn queue_present(&self, handle: Handle<Queue>, desc: &QueuePresentDesc) -> Result<bool>;
 
-    fn wait_queue_idle(&self, handle: Handle<Queue>) -> Result<()>;
+    fn queue_wait_idle(&self, handle: Handle<Queue>) -> Result<()>;
 
     // Surface
     fn create_surface(&mut self, desc: SurfaceCreateDesc) -> Result<Handle<Surface>>;
@@ -221,6 +221,13 @@ pub trait RHI {
         first_binding: u32,
         buffers: &[Handle<Buffer>],
         offsets: &[u64],
+    ) -> Result<()>;
+    fn cmd_copy_buffer(
+        &self,
+        cb: Handle<CommandBuffer>,
+        src: Handle<Buffer>,
+        dst: Handle<Buffer>,
+        regions: &[BufferCopyRegion],
     ) -> Result<()>;
     fn cmd_draw(
         &self,

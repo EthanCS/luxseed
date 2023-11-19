@@ -22,6 +22,8 @@ pub struct RenderSystem {
     pub in_flight_fences: Vec<Handle<Fence>>,
     pub image_availables: Vec<Handle<Semaphore>>,
     pub render_finisheds: Vec<Handle<Semaphore>>,
+
+    pub command_pool: Handle<CommandPool>,
 }
 
 impl RenderSystem {
@@ -90,6 +92,8 @@ impl RenderSystem {
             swapchain_framebuffers.push(fb);
         }
 
+        let command_pool = rhi.create_command_pool(graphics_queue).unwrap();
+
         Ok(Self {
             rhi,
             device,
@@ -107,6 +111,8 @@ impl RenderSystem {
             in_flight_fences,
             image_availables,
             render_finisheds,
+
+            command_pool,
         })
     }
 
@@ -163,6 +169,37 @@ impl RenderSystem {
 
     pub fn get_in_flight_fence(&self) -> Handle<Fence> {
         self.in_flight_fences[self.frame]
+    }
+
+    pub fn copy_buffer(
+        &mut self,
+        src: Handle<Buffer>,
+        dst: Handle<Buffer>,
+        size: u64,
+    ) -> Result<()> {
+        let cb = self.rhi.create_command_buffer(self.command_pool, CommandBufferLevel::Primary)?;
+        self.rhi.cmd_begin(cb)?;
+        self.rhi.cmd_copy_buffer(
+            cb,
+            src,
+            dst,
+            &[BufferCopyRegion { size, ..Default::default() }],
+        )?;
+        self.rhi.cmd_end(cb)?;
+        self.rhi.queue_submit(
+            self.graphics_queue,
+            &QueueSubmitDesc {
+                wait_semaphore: None,
+                wait_stage: None,
+                command_buffer: &[cb],
+                finish_semaphore: None,
+                fence: None,
+            },
+        )?;
+        // wait for the queue to finish executing the command buffer
+        self.rhi.queue_wait_idle(self.graphics_queue)?;
+        self.rhi.destroy_command_buffer(cb)?;
+        Ok(())
     }
 
     pub fn compile_shader(
@@ -252,6 +289,8 @@ impl RenderSystem {
         }
 
         self.cleanup_swapchain()?;
+
+        self.rhi.destroy_command_pool(self.command_pool).unwrap();
 
         self.rhi.destroy_render_pass(self.swapchain_render_pass)?;
         self.rhi.destroy_surface(self.surface)?;

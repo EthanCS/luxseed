@@ -1,7 +1,7 @@
 use ash::vk;
 
 use crate::{
-    define::{ClearColor, ClearDepthStencil, RenderPassOutput, StencilOpState},
+    define::{BufferCopyRegion, ClearColor, ClearDepthStencil, RenderPassOutput, StencilOpState},
     enums::*,
 };
 
@@ -404,6 +404,16 @@ impl From<MemoryLocation> for gpu_allocator::MemoryLocation {
             MemoryLocation::GpuToCpu => gpu_allocator::MemoryLocation::GpuToCpu,
             MemoryLocation::GpuOnly => gpu_allocator::MemoryLocation::GpuOnly,
             MemoryLocation::Unknown => gpu_allocator::MemoryLocation::Unknown,
+        }
+    }
+}
+
+impl From<BufferCopyRegion> for vk::BufferCopy {
+    fn from(value: BufferCopyRegion) -> Self {
+        vk::BufferCopy {
+            src_offset: value.src_offset,
+            dst_offset: value.dst_offset,
+            size: value.size,
         }
     }
 }

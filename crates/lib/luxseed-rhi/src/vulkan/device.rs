@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use ash::{extensions::khr, vk};
 use gpu_allocator::vulkan::*;
+use smallvec::SmallVec;
 use std::{collections::HashMap, ffi::CStr};
 
 use crate::{
@@ -286,29 +287,40 @@ impl VulkanQueue {
             ash::vk::Fence::null()
         };
 
-        let wait_semaphores = submission
-            .wait_semaphore
-            .iter()
-            .map(|semaphore| p_semaphore.get(*semaphore).unwrap().raw)
-            .collect::<Vec<_>>();
-        let wait_dst_stage_mask =
-            submission.wait_stage.iter().map(|stage| (*stage).into()).collect::<Vec<_>>();
-        let command_buffers = submission
-            .command_buffer
-            .iter()
-            .map(|command_buffer| p_command_buffer.get(*command_buffer).unwrap().raw)
-            .collect::<Vec<_>>();
-        let signal_semaphores = submission
-            .finish_semaphore
-            .iter()
-            .map(|semaphore| p_semaphore.get(*semaphore).unwrap().raw)
-            .collect::<Vec<_>>();
+        let mut cbs = SmallVec::<[vk::CommandBuffer; 4]>::new();
+        let mut wait = SmallVec::<[vk::Semaphore; 4]>::new();
+        let mut stage = SmallVec::<[vk::PipelineStageFlags; 4]>::new();
+        let mut signal = SmallVec::<[vk::Semaphore; 4]>::new();
+
+        for cb in submission.command_buffer.iter() {
+            cbs.push(p_command_buffer.get(*cb).unwrap().raw);
+        }
+
+        if let Some(wait_semaphores) = submission.wait_semaphore {
+            for s in wait_semaphores {
+                wait.push(p_semaphore.get(*s).unwrap().raw);
+            }
+        }
+
+        if let Some(wait_dst_stage_mask) = submission.wait_stage {
+            for s in wait_dst_stage_mask {
+                stage.push((*s).into());
+            }
+        }
+
+        if let Some(signal_semaphores) = submission.finish_semaphore {
+            for s in signal_semaphores {
+                signal.push(p_semaphore.get(*s).unwrap().raw);
+            }
+        }
+
         let submit_info = vk::SubmitInfo::builder()
-            .wait_semaphores(&wait_semaphores)
-            .wait_dst_stage_mask(&wait_dst_stage_mask)
-            .signal_semaphores(&signal_semaphores)
-            .command_buffers(&command_buffers)
+            .command_buffers(&cbs)
+            .wait_semaphores(&wait)
+            .wait_dst_stage_mask(&stage)
+            .signal_semaphores(&signal)
             .build();
+
         unsafe {
             device.raw().queue_submit(self.raw, &[submit_info], fence)?;
         }

@@ -360,10 +360,10 @@ pub struct FramebufferCreateDesc<'a> {
 }
 
 pub struct QueueSubmitDesc<'a> {
-    pub wait_semaphore: &'a [Handle<Semaphore>],
-    pub wait_stage: &'a [PipelineStage],
+    pub wait_semaphore: Option<&'a [Handle<Semaphore>]>,
+    pub wait_stage: Option<&'a [PipelineStage]>,
     pub command_buffer: &'a [Handle<CommandBuffer>],
-    pub finish_semaphore: &'a [Handle<Semaphore>],
+    pub finish_semaphore: Option<&'a [Handle<Semaphore>]>,
     pub fence: Option<Handle<Fence>>,
 }
 
@@ -390,6 +390,13 @@ pub struct BufferCreateDesc<'a> {
     pub usage: BufferUsage,
     pub memory: MemoryLocation,
     pub initial_data: Option<&'a [u8]>,
+}
+
+#[derive(Default, Clone, Copy)]
+pub struct BufferCopyRegion {
+    pub src_offset: u64,
+    pub dst_offset: u64,
+    pub size: u64,
 }
 
 macro_rules! define_rhi_resources {

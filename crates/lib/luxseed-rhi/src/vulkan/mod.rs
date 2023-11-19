@@ -154,7 +154,7 @@ impl RHI for VulkanRHI {
         queue.present(desc, &self.res_pool.swapchain, &self.res_pool.semaphore)
     }
 
-    fn wait_queue_idle(&self, handle: Handle<Queue>) -> Result<()> {
+    fn queue_wait_idle(&self, handle: Handle<Queue>) -> Result<()> {
         let queue = self.res_pool.queue.get(handle).context("Queue not found.")?;
         let device =
             self.res_pool.device.get(queue.device.unwrap()).context("Device not found.")?;
@@ -626,6 +626,21 @@ impl RHI for VulkanRHI {
         unsafe {
             device.raw().cmd_bind_vertex_buffers(cb.raw, first_binding, &buffers, &offsets);
         }
+        Ok(())
+    }
+
+    fn cmd_copy_buffer(
+        &self,
+        cb: Handle<CommandBuffer>,
+        src: Handle<Buffer>,
+        dst: Handle<Buffer>,
+        regions: &[BufferCopyRegion],
+    ) -> Result<()> {
+        let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
+        let src = self.res_pool.buffer.get(src).context("Source buffer not found.")?;
+        let dst = self.res_pool.buffer.get(dst).context("Destination buffer not found.")?;
+        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
+        cb.copy_buffer(device, src, dst, regions);
         Ok(())
     }
 

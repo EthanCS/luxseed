@@ -15,9 +15,10 @@ pub struct App {
     pub resize: bool,
     pub vs: Handle<Shader>,
     pub fs: Handle<Shader>,
+
     pub pipeline: Handle<RasterPipeline>,
-    pub command_pool: Handle<CommandPool>,
     pub command_buffers: Vec<Handle<CommandBuffer>>,
+
     pub vertex_buffer: Handle<Buffer>,
     pub vertices: Vec<Vertex>,
 }
@@ -40,16 +41,35 @@ impl App {
         vertices.push(Vertex { position: [0.5, 0.5], color: [0.0, 1.0, 0.0] });
         vertices.push(Vertex { position: [-0.5, 0.5], color: [0.0, 0.0, 1.0] });
 
+        let staging_buffer = sys.rhi.create_buffer(
+            sys.device,
+            &BufferCreateDesc {
+                name: "Staging Buffer",
+                size: vertices.len() * std::mem::size_of::<Vertex>(),
+                usage: BufferUsage::TRANSFER_SRC,
+                memory: MemoryLocation::CpuToGpu,
+                initial_data: Some(as_byte_slice_unchecked(&vertices)),
+            },
+        )?;
+
         let vertex_buffer = sys.rhi.create_buffer(
             sys.device,
             &BufferCreateDesc {
                 name: "Triangle",
                 size: vertices.len() * std::mem::size_of::<Vertex>(),
-                usage: BufferUsage::VERTEX_BUFFER,
-                memory: MemoryLocation::CpuToGpu,
-                initial_data: Some(as_byte_slice_unchecked(&vertices)),
+                usage: BufferUsage::TRANSFER_DST | BufferUsage::VERTEX_BUFFER,
+                memory: MemoryLocation::GpuOnly,
+                initial_data: None,
             },
         )?;
+
+        sys.copy_buffer(
+            staging_buffer,
+            vertex_buffer,
+            (vertices.len() * std::mem::size_of::<Vertex>()) as u64,
+        )?;
+
+        sys.rhi.destroy_buffer(staging_buffer)?;
 
         let pipeline = sys
             .rhi
@@ -72,25 +92,15 @@ impl App {
                 },
             )
             .unwrap();
-        let command_pool = sys.rhi.create_command_pool(sys.graphics_queue).unwrap();
 
         let mut command_buffers = Vec::new();
         for _ in 0..sys.max_frames_in_flight {
-            let cb = sys.rhi.create_command_buffer(command_pool, CommandBufferLevel::Primary)?;
+            let cb =
+                sys.rhi.create_command_buffer(sys.command_pool, CommandBufferLevel::Primary)?;
             command_buffers.push(cb);
         }
 
-        Ok(Self {
-            sys,
-            vs,
-            fs,
-            pipeline,
-            command_pool,
-            command_buffers,
-            resize: false,
-            vertex_buffer,
-            vertices,
-        })
+        Ok(Self { sys, vs, fs, pipeline, command_buffers, resize: false, vertex_buffer, vertices })
     }
 
     pub fn render(&mut self, window: &Window) -> anyhow::Result<()> {
@@ -115,10 +125,10 @@ impl App {
             self.sys.rhi.queue_submit(
                 self.sys.graphics_queue,
                 &QueueSubmitDesc {
-                    wait_semaphore: &[self.sys.get_image_available_semaphore()],
-                    wait_stage: &[PipelineStage::ColorAttachmentOutput],
+                    wait_semaphore: Some(&[self.sys.get_image_available_semaphore()]),
+                    wait_stage: Some(&[PipelineStage::ColorAttachmentOutput]),
                     command_buffer: &[cb],
-                    finish_semaphore: &[self.sys.get_render_finished_semaphore()],
+                    finish_semaphore: Some(&[self.sys.get_render_finished_semaphore()]),
                     fence: Some(self.sys.get_in_flight_fence()),
                 },
             )?;
@@ -133,7 +143,6 @@ impl App {
         self.sys.rhi.wait_idle(self.sys.device).unwrap();
 
         self.sys.rhi.destroy_buffer(self.vertex_buffer).unwrap();
-        self.sys.rhi.destroy_command_pool(self.command_pool).unwrap();
         self.sys.rhi.destroy_shader_module(self.vs).unwrap();
         self.sys.rhi.destroy_shader_module(self.fs).unwrap();
         self.sys.rhi.destroy_raster_pipeline(self.pipeline).unwrap();
