@@ -285,6 +285,12 @@ pub enum MemoryLocation {
     GpuToCpu,
 }
 
+#[derive(Clone, Copy)]
+pub enum IndexType {
+    U16,
+    U32,
+}
+
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct BufferUsage : u32 {

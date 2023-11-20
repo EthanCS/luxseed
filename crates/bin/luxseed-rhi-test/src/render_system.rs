@@ -171,6 +171,27 @@ impl RenderSystem {
         self.in_flight_fences[self.frame]
     }
 
+    pub fn upload_buffer_by_staging_buffer(
+        &mut self,
+        buffer: Handle<Buffer>,
+        data: &[u8],
+    ) -> Result<()> {
+        let size = data.len() as u64;
+        let staging_buffer = self.rhi.create_buffer(
+            self.device,
+            &BufferCreateDesc {
+                name: "Staging Buffer",
+                size: size as usize,
+                usage: BufferUsage::TRANSFER_SRC,
+                memory: MemoryLocation::CpuToGpu,
+                initial_data: Some(data),
+            },
+        )?;
+        self.copy_buffer(staging_buffer, buffer, size)?;
+        self.rhi.destroy_buffer(staging_buffer)?;
+        Ok(())
+    }
+
     pub fn copy_buffer(
         &mut self,
         src: Handle<Buffer>,

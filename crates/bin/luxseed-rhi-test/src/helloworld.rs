@@ -21,6 +21,8 @@ pub struct App {
 
     pub vertex_buffer: Handle<Buffer>,
     pub vertices: Vec<Vertex>,
+    pub index_buffer: Handle<Buffer>,
+    pub indices: Vec<u16>,
 }
 
 fn as_byte_slice_unchecked<T: Copy>(v: &[T]) -> &[u8] {
@@ -36,41 +38,40 @@ impl App {
         let vs = sys.compile_shader("hello", VERTEX_SHADER, ShaderStage::Vertex, "main")?;
         let fs = sys.compile_shader("hello", FRAGMENT_SHADER, ShaderStage::Fragment, "main")?;
 
-        let mut vertices = Vec::new();
-        vertices.push(Vertex { position: [0.0, -0.5], color: [1.0, 1.0, 1.0] });
-        vertices.push(Vertex { position: [0.5, 0.5], color: [0.0, 1.0, 0.0] });
-        vertices.push(Vertex { position: [-0.5, 0.5], color: [0.0, 0.0, 1.0] });
-
-        let staging_buffer = sys.rhi.create_buffer(
-            sys.device,
-            &BufferCreateDesc {
-                name: "Staging Buffer",
-                size: vertices.len() * std::mem::size_of::<Vertex>(),
-                usage: BufferUsage::TRANSFER_SRC,
-                memory: MemoryLocation::CpuToGpu,
-                initial_data: Some(as_byte_slice_unchecked(&vertices)),
-            },
-        )?;
-
+        // Vertex buffer
+        let vertices = vec![
+            Vertex { position: [-0.5, -0.5], color: [1.0, 0.0, 0.0] },
+            Vertex { position: [0.5, -0.5], color: [0.0, 1.0, 0.0] },
+            Vertex { position: [0.5, 0.5], color: [0.0, 0.0, 1.0] },
+            Vertex { position: [-0.5, 0.5], color: [1.0, 1.0, 1.0] },
+        ];
         let vertex_buffer = sys.rhi.create_buffer(
             sys.device,
             &BufferCreateDesc {
-                name: "Triangle",
+                name: "Triangle_Vertex",
                 size: vertices.len() * std::mem::size_of::<Vertex>(),
                 usage: BufferUsage::TRANSFER_DST | BufferUsage::VERTEX_BUFFER,
                 memory: MemoryLocation::GpuOnly,
                 initial_data: None,
             },
         )?;
+        sys.upload_buffer_by_staging_buffer(vertex_buffer, as_byte_slice_unchecked(&vertices))?;
 
-        sys.copy_buffer(
-            staging_buffer,
-            vertex_buffer,
-            (vertices.len() * std::mem::size_of::<Vertex>()) as u64,
+        // Index buffer
+        let indices: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
+        let index_buffer = sys.rhi.create_buffer(
+            sys.device,
+            &BufferCreateDesc {
+                name: "Triangle_Index",
+                size: indices.len() * std::mem::size_of::<u16>(),
+                usage: BufferUsage::TRANSFER_DST | BufferUsage::INDEX_BUFFER,
+                memory: MemoryLocation::GpuOnly,
+                initial_data: None,
+            },
         )?;
+        sys.upload_buffer_by_staging_buffer(index_buffer, as_byte_slice_unchecked(&indices))?;
 
-        sys.rhi.destroy_buffer(staging_buffer)?;
-
+        // Pipeline
         let pipeline = sys
             .rhi
             .create_raster_pipeline(
@@ -100,7 +101,18 @@ impl App {
             command_buffers.push(cb);
         }
 
-        Ok(Self { sys, vs, fs, pipeline, command_buffers, resize: false, vertex_buffer, vertices })
+        Ok(Self {
+            sys,
+            vs,
+            fs,
+            pipeline,
+            command_buffers,
+            resize: false,
+            vertex_buffer,
+            vertices,
+            index_buffer,
+            indices,
+        })
     }
 
     pub fn render(&mut self, window: &Window) -> anyhow::Result<()> {
@@ -119,7 +131,8 @@ impl App {
             self.sys.rhi.cmd_set_viewport(cb, 0.0, 0.0, width as f32, height as f32, 0.0, 1.0)?;
             self.sys.rhi.cmd_set_scissor(cb, 0, 0, width, height)?;
             self.sys.rhi.cmd_bind_vertex_buffers(cb, 0, &[self.vertex_buffer], &[0])?;
-            self.sys.rhi.cmd_draw(cb, self.vertices.len() as u32, 1, 0, 0)?;
+            self.sys.rhi.cmd_bind_index_buffer(cb, self.index_buffer, 0, IndexType::U16)?;
+            self.sys.rhi.cmd_draw_indexed(cb, self.indices.len() as u32, 1, 0, 0, 0)?;
             self.sys.rhi.cmd_end_render_pass(cb)?;
             self.sys.rhi.cmd_end(cb)?;
             self.sys.rhi.queue_submit(
@@ -143,6 +156,8 @@ impl App {
         self.sys.rhi.wait_idle(self.sys.device).unwrap();
 
         self.sys.rhi.destroy_buffer(self.vertex_buffer).unwrap();
+        self.sys.rhi.destroy_buffer(self.index_buffer).unwrap();
+
         self.sys.rhi.destroy_shader_module(self.vs).unwrap();
         self.sys.rhi.destroy_shader_module(self.fs).unwrap();
         self.sys.rhi.destroy_raster_pipeline(self.pipeline).unwrap();

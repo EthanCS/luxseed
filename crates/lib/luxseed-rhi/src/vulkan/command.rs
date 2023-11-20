@@ -96,6 +96,7 @@ impl VulkanCommandBuffer {
         Ok(())
     }
 
+    #[inline]
     pub fn begin(&self, device: &VulkanDevice) -> anyhow::Result<()> {
         let begin_info = vk::CommandBufferBeginInfo::builder().build();
         unsafe {
@@ -104,6 +105,7 @@ impl VulkanCommandBuffer {
         Ok(())
     }
 
+    #[inline]
     pub fn end(&self, device: &VulkanDevice) -> anyhow::Result<()> {
         unsafe {
             device.raw().end_command_buffer(self.raw)?;
@@ -111,6 +113,7 @@ impl VulkanCommandBuffer {
         Ok(())
     }
 
+    #[inline]
     pub fn begin_render_pass(
         &self,
         device: &VulkanDevice,
@@ -158,6 +161,7 @@ impl VulkanCommandBuffer {
         Ok(())
     }
 
+    #[inline]
     pub fn end_render_pass(&self, device: &VulkanDevice) -> anyhow::Result<()> {
         unsafe {
             device.raw().cmd_end_render_pass(self.raw);
@@ -165,6 +169,7 @@ impl VulkanCommandBuffer {
         Ok(())
     }
 
+    #[inline]
     pub fn bind_raster_pipeline(
         &self,
         device: &VulkanDevice,
@@ -176,6 +181,7 @@ impl VulkanCommandBuffer {
         Ok(())
     }
 
+    #[inline]
     pub fn set_viewport(
         &self,
         device: &VulkanDevice,
@@ -200,6 +206,7 @@ impl VulkanCommandBuffer {
         Ok(())
     }
 
+    #[inline]
     pub fn set_scissor(
         &self,
         device: &VulkanDevice,
@@ -218,6 +225,7 @@ impl VulkanCommandBuffer {
         Ok(())
     }
 
+    #[inline]
     pub fn draw(
         &self,
         device: &VulkanDevice,
@@ -225,7 +233,7 @@ impl VulkanCommandBuffer {
         instance_count: u32,
         first_vertex: u32,
         first_instance: u32,
-    ) -> anyhow::Result<()> {
+    ) {
         unsafe {
             device.raw().cmd_draw(
                 self.raw,
@@ -235,9 +243,31 @@ impl VulkanCommandBuffer {
                 first_instance,
             );
         }
-        Ok(())
     }
 
+    #[inline]
+    pub fn draw_indexed(
+        &self,
+        device: &VulkanDevice,
+        index_count: u32,
+        instance_count: u32,
+        first_index: u32,
+        vertex_offset: i32,
+        first_instance: u32,
+    ) {
+        unsafe {
+            device.raw().cmd_draw_indexed(
+                self.raw,
+                index_count,
+                instance_count,
+                first_index,
+                vertex_offset,
+                first_instance,
+            );
+        }
+    }
+
+    #[inline]
     pub fn copy_buffer(
         &self,
         device: &VulkanDevice,
@@ -254,6 +284,7 @@ impl VulkanCommandBuffer {
         }
     }
 
+    #[inline]
     pub fn reset(&self, device: &VulkanDevice, release: bool) -> anyhow::Result<()> {
         let flags = if release {
             vk::CommandBufferResetFlags::RELEASE_RESOURCES

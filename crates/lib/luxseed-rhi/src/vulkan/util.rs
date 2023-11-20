@@ -417,3 +417,12 @@ impl From<BufferCopyRegion> for vk::BufferCopy {
         }
     }
 }
+
+impl From<IndexType> for vk::IndexType {
+    fn from(value: IndexType) -> Self {
+        match value {
+            IndexType::U16 => vk::IndexType::UINT16,
+            IndexType::U32 => vk::IndexType::UINT32,
+        }
+    }
+}

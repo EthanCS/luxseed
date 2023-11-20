@@ -222,6 +222,13 @@ pub trait RHI {
         buffers: &[Handle<Buffer>],
         offsets: &[u64],
     ) -> Result<()>;
+    fn cmd_bind_index_buffer(
+        &self,
+        cb: Handle<CommandBuffer>,
+        buffer: Handle<Buffer>,
+        offset: u64,
+        index_type: IndexType,
+    ) -> Result<()>;
     fn cmd_copy_buffer(
         &self,
         cb: Handle<CommandBuffer>,
@@ -235,6 +242,15 @@ pub trait RHI {
         vertex_count: u32,
         instance_count: u32,
         first_vertex: u32,
+        first_instance: u32,
+    ) -> Result<()>;
+    fn cmd_draw_indexed(
+        &self,
+        cb: Handle<CommandBuffer>,
+        index_count: u32,
+        instance_count: u32,
+        first_index: u32,
+        vertex_offset: i32,
         first_instance: u32,
     ) -> Result<()>;
 

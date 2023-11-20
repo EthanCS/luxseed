@@ -14,6 +14,7 @@ pub mod util;
 
 use anyhow::Context;
 use anyhow::Result;
+use smallvec::SmallVec;
 use std::ffi::CString;
 
 use crate::define::*;
@@ -621,10 +622,28 @@ impl RHI for VulkanRHI {
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
         let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        let buffers =
-            buffers.iter().map(|b| self.res_pool.buffer.get(*b).unwrap().raw).collect::<Vec<_>>();
+        let mut v = SmallVec::<[ash::vk::Buffer; 4]>::new();
+        for buffer in buffers {
+            v.push(self.res_pool.buffer.get(*buffer).unwrap().raw);
+        }
         unsafe {
-            device.raw().cmd_bind_vertex_buffers(cb.raw, first_binding, &buffers, &offsets);
+            device.raw().cmd_bind_vertex_buffers(cb.raw, first_binding, &v, &offsets);
+        }
+        Ok(())
+    }
+
+    fn cmd_bind_index_buffer(
+        &self,
+        cb: Handle<CommandBuffer>,
+        buffer: Handle<Buffer>,
+        offset: u64,
+        index_type: IndexType,
+    ) -> Result<()> {
+        let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
+        let buffer = self.res_pool.buffer.get(buffer).context("Buffer not found.")?;
+        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
+        unsafe {
+            device.raw().cmd_bind_index_buffer(cb.raw, buffer.raw, offset, index_type.into());
         }
         Ok(())
     }
@@ -654,7 +673,30 @@ impl RHI for VulkanRHI {
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
         let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        cb.draw(device, vertex_count, instance_count, first_vertex, first_instance)
+        cb.draw(device, vertex_count, instance_count, first_vertex, first_instance);
+        Ok(())
+    }
+
+    fn cmd_draw_indexed(
+        &self,
+        cb: Handle<CommandBuffer>,
+        index_count: u32,
+        instance_count: u32,
+        first_index: u32,
+        vertex_offset: i32,
+        first_instance: u32,
+    ) -> Result<()> {
+        let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
+        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
+        cb.draw_indexed(
+            device,
+            index_count,
+            instance_count,
+            first_index,
+            vertex_offset,
+            first_instance,
+        );
+        Ok(())
     }
 
     fn cmd_begin_event(
