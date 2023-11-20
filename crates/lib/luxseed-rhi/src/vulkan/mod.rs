@@ -392,6 +392,12 @@ impl RHI for VulkanRHI {
         Ok(item.0)
     }
 
+    fn get_buffer_mapped_slice_mut(&mut self, buffer: Handle<Buffer>) -> Result<&mut [u8]> {
+        let buffer = self.res_pool.buffer.get_mut(buffer).context("Buffer not found.")?;
+        let allocation = buffer.allocation.as_mut().context("Buffer not allocated.")?;
+        Ok(allocation.mapped_slice_mut().context("Buffer not mapped.")?)
+    }
+
     fn destroy_buffer(&mut self, buffer: Handle<Buffer>) -> Result<()> {
         if let Some(b) = self.res_pool.buffer.get_mut(buffer) {
             let device =

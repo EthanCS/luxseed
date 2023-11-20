@@ -130,6 +130,8 @@ pub trait RHI {
 
     fn destroy_buffer(&mut self, buffer: Handle<Buffer>) -> Result<()>;
 
+    fn get_buffer_mapped_slice_mut(&mut self, buffer: Handle<Buffer>) -> Result<&mut [u8]>;
+
     /// Creates a new raster pipeline with the given description and returns a handle to it.
     ///
     /// # Arguments
