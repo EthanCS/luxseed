@@ -219,6 +219,11 @@ impl Default for RasterState {
         }
     }
 }
+
+pub struct PipelineLayoutCreateDesc<'a> {
+    pub descriptor_set_layouts: &'a [Handle<DescriptorSetLayout>],
+}
+
 pub struct RasterPipelineCreateDesc<'a> {
     pub vertex_input_bindings: Option<&'a [VertexInputBinding<'a>]>,
     pub raster_state: RasterState,
@@ -226,6 +231,7 @@ pub struct RasterPipelineCreateDesc<'a> {
     pub blend_states: &'a [BlendState],
     pub shader_stages: &'a [Handle<Shader>],
     pub render_pass_output: RenderPassOutput,
+    pub pipeline_layout: Handle<PipelineLayout>,
 }
 
 #[derive(Clone, Copy)]
@@ -399,6 +405,53 @@ pub struct BufferCopyRegion {
     pub size: u64,
 }
 
+#[derive(Clone, Copy)]
+pub struct DescriptorSetLayoutBinding {
+    pub binding: u32,
+    pub descriptor_type: DescriptorType,
+    pub descriptor_count: u32,
+    pub stage_flags: ShaderStage,
+}
+
+pub struct DescriptorSetLayoutCreateDesc<'a> {
+    pub bindings: &'a [DescriptorSetLayoutBinding],
+}
+
+pub struct DescriptorPoolSize {
+    pub descriptor_type: DescriptorType,
+    pub descriptor_count: u32,
+}
+
+pub struct DescriptorPoolCreateDesc<'a> {
+    pub max_sets: u32,
+    pub pool_sizes: &'a [DescriptorPoolSize],
+}
+
+#[derive(Clone, Copy)]
+pub struct DescriptorBufferInfo {
+    pub buffer: Handle<Buffer>,
+    pub offset: u64,
+    pub range: u64,
+}
+
+pub struct DescriptorSetWriteDesc<'a> {
+    pub dst_set: Handle<DescriptorSet>,
+    pub dst_binding: u32,
+    pub dst_array_element: u32,
+    pub descriptor_type: DescriptorType,
+    pub buffer_infos: &'a [DescriptorBufferInfo],
+}
+
+pub struct DescriptorSetCopyDesc {
+    pub src_set: Handle<DescriptorSet>,
+    pub src_binding: u32,
+    pub src_array_element: u32,
+    pub dst_set: Handle<DescriptorSet>,
+    pub dst_binding: u32,
+    pub dst_array_element: u32,
+    pub descriptor_count: u32,
+}
+
 macro_rules! define_rhi_resources {
     ($($name:ident),*) => {
         $(#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -414,6 +467,7 @@ define_rhi_resources!(
     Texture,
     TextureView,
     Shader,
+    PipelineLayout,
     RasterPipeline,
     RenderPass,
     Framebuffer,
@@ -421,5 +475,8 @@ define_rhi_resources!(
     CommandBuffer,
     Semaphore,
     Fence,
-    Buffer
+    Buffer,
+    DescriptorSetLayout,
+    DescriptorPool,
+    DescriptorSet
 );

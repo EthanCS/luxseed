@@ -426,3 +426,30 @@ impl From<IndexType> for vk::IndexType {
         }
     }
 }
+
+impl From<DescriptorType> for vk::DescriptorType {
+    fn from(value: DescriptorType) -> Self {
+        match value {
+            DescriptorType::Sampler => vk::DescriptorType::SAMPLER,
+            DescriptorType::CombinedImageSampler => vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            DescriptorType::SampledImage => vk::DescriptorType::SAMPLED_IMAGE,
+            DescriptorType::StorageImage => vk::DescriptorType::STORAGE_IMAGE,
+            DescriptorType::UniformTexelBuffer => vk::DescriptorType::UNIFORM_TEXEL_BUFFER,
+            DescriptorType::StorageTexelBuffer => vk::DescriptorType::STORAGE_TEXEL_BUFFER,
+            DescriptorType::UniformBuffer => vk::DescriptorType::UNIFORM_BUFFER,
+            DescriptorType::StorageBuffer => vk::DescriptorType::STORAGE_BUFFER,
+            DescriptorType::UniformBufferDynamic => vk::DescriptorType::UNIFORM_BUFFER_DYNAMIC,
+            DescriptorType::StorageBufferDynamic => vk::DescriptorType::STORAGE_BUFFER_DYNAMIC,
+            DescriptorType::InputAttachment => vk::DescriptorType::INPUT_ATTACHMENT,
+        }
+    }
+}
+
+impl From<PipelineBindPoint> for vk::PipelineBindPoint {
+    fn from(value: PipelineBindPoint) -> Self {
+        match value {
+            PipelineBindPoint::Graphics => vk::PipelineBindPoint::GRAPHICS,
+            PipelineBindPoint::Compute => vk::PipelineBindPoint::COMPUTE,
+        }
+    }
+}

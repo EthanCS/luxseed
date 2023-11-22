@@ -1,5 +1,6 @@
 pub mod buffer;
 pub mod command;
+pub mod descriptor;
 pub mod device;
 pub mod framebuffer;
 pub mod image;
@@ -25,10 +26,11 @@ use crate::{pool::Pool, RHICreation, RHI};
 
 use self::buffer::*;
 use self::command::*;
+use self::descriptor::*;
 use self::device::*;
 use self::framebuffer::*;
 use self::image::*;
-use self::pipeline::VulkanRasterPipeline;
+use self::pipeline::*;
 use self::render_pass::VulkanRenderPass;
 use self::shader::VulkanShader;
 use self::surface::VulkanSurface;
@@ -44,6 +46,7 @@ define_resource_pool!(
     (VulkanImage, texture, 128),
     (VulkanImageView, texture_view, 128),
     (VulkanShader, shader_module, 32),
+    (VulkanPipelineLayout, pipeline_layout, 32),
     (VulkanRasterPipeline, raster_pipeline, 32),
     (VulkanRenderPass, render_pass, 32),
     (VulkanFramebuffer, framebuffer, 8),
@@ -51,7 +54,10 @@ define_resource_pool!(
     (VulkanCommandBuffer, command_buffer, 8),
     (VulkanFence, fence, 4),
     (VulkanSemaphore, semaphore, 4),
-    (VulkanBuffer, buffer, 32)
+    (VulkanBuffer, buffer, 32),
+    (VulkanDescriptorSetLayout, descriptor_set_layout, 32),
+    (VulkanDescriptorPool, descriptor_pool, 32),
+    (VulkanDescriptorSet, descriptor_set, 32)
 );
 
 pub struct VulkanRHI {
@@ -307,6 +313,96 @@ impl RHI for VulkanRHI {
         Ok(swapchain.image_count)
     }
 
+    fn create_descriptor_set_layout(
+        &mut self,
+        device: Handle<Device>,
+        desc: &DescriptorSetLayoutCreateDesc,
+    ) -> Result<Handle<DescriptorSetLayout>> {
+        let device = self.res_pool.device.get(device).context("Device not found.")?;
+        let item = self.res_pool.descriptor_set_layout.malloc();
+        item.1.init(device, desc)?;
+        Ok(item.0)
+    }
+
+    fn destroy_descriptor_set_layout(&mut self, handle: Handle<DescriptorSetLayout>) -> Result<()> {
+        if let Some(dsl) = self.res_pool.descriptor_set_layout.get_mut(handle) {
+            let device =
+                self.res_pool.device.get(dsl.device.unwrap()).context("Device not found.")?;
+            dsl.destroy(device);
+            self.res_pool.descriptor_set_layout.free(handle);
+        }
+        Ok(())
+    }
+
+    fn create_descriptor_pool(
+        &mut self,
+        device: Handle<Device>,
+        desc: &DescriptorPoolCreateDesc,
+    ) -> Result<Handle<DescriptorPool>> {
+        let device = self.res_pool.device.get(device).context("Device not found.")?;
+        let item = self.res_pool.descriptor_pool.malloc();
+        item.1.init(device, desc)?;
+        Ok(item.0)
+    }
+
+    fn destroy_descriptor_pool(&mut self, handle: Handle<DescriptorPool>) -> Result<()> {
+        if let Some(dp) = self.res_pool.descriptor_pool.get_mut(handle) {
+            let device =
+                self.res_pool.device.get(dp.device.unwrap()).context("Device not found.")?;
+            dp.destroy(device);
+            self.res_pool.descriptor_pool.free(handle);
+        }
+        Ok(())
+    }
+
+    fn allocate_descriptor_set(
+        &mut self,
+        pool: Handle<DescriptorPool>,
+        set_layout: Handle<DescriptorSetLayout>,
+    ) -> Result<Handle<DescriptorSet>> {
+        let dp =
+            self.res_pool.descriptor_pool.get_mut(pool).context("Descriptor pool not found.")?;
+        let device = self.res_pool.device.get(dp.device.unwrap()).context("Device not found.")?;
+        let layout =
+            self.res_pool.descriptor_set_layout.get(set_layout).context("Layout not found.")?;
+        let item = self.res_pool.descriptor_set.malloc();
+        item.1.init(device, dp, layout)?;
+        Ok(item.0)
+    }
+
+    fn free_descriptor_sets(&mut self, sets: &[Handle<DescriptorSet>]) -> Result<()> {
+        for set in sets {
+            if let Some(ds) = self.res_pool.descriptor_set.get_mut(*set) {
+                let device =
+                    self.res_pool.device.get(ds.device.unwrap()).context("Device not found.")?;
+                let pool = self
+                    .res_pool
+                    .descriptor_pool
+                    .get(ds.pool.unwrap())
+                    .context("Descriptor pool not found.")?;
+                ds.destroy(device, pool)?;
+                self.res_pool.descriptor_set.free(*set);
+            }
+        }
+        Ok(())
+    }
+
+    fn update_descriptor_sets(
+        &self,
+        device: Handle<Device>,
+        writes: &[DescriptorSetWriteDesc],
+        copies: &[DescriptorSetCopyDesc],
+    ) -> Result<()> {
+        let device = self.res_pool.device.get(device).context("Device not found.")?;
+        device.update_descriptor_sets(
+            writes,
+            copies,
+            &self.res_pool.buffer,
+            &self.res_pool.descriptor_set,
+        )?;
+        Ok(())
+    }
+
     fn create_texture(
         &mut self,
         device: Handle<Device>,
@@ -408,15 +504,41 @@ impl RHI for VulkanRHI {
         Ok(())
     }
 
+    fn create_pipeline_layout(
+        &mut self,
+        device: Handle<Device>,
+        desc: &PipelineLayoutCreateDesc,
+    ) -> Result<Handle<PipelineLayout>> {
+        let device = self.res_pool.device.get_mut(device).context("Device not found.")?;
+        let item = self.res_pool.pipeline_layout.malloc();
+        item.1.init(device, desc, &self.res_pool.descriptor_set_layout)?;
+        Ok(item.0)
+    }
+
+    fn destroy_pipeline_layout(&mut self, pipeline_layout: Handle<PipelineLayout>) -> Result<()> {
+        if let Some(pl) = self.res_pool.pipeline_layout.get_mut(pipeline_layout) {
+            let device =
+                self.res_pool.device.get(pl.device.unwrap()).context("Device not found.")?;
+            pl.destroy(device);
+            self.res_pool.pipeline_layout.free(pipeline_layout);
+        }
+        Ok(())
+    }
+
     fn create_raster_pipeline(
         &mut self,
         device: Handle<Device>,
-        creation: &RasterPipelineCreateDesc,
+        desc: &RasterPipelineCreateDesc,
     ) -> Result<Handle<RasterPipeline>> {
         let device = self.res_pool.device.get_mut(device).context("Device not found.")?;
-        let render_pass = device.get_or_create_render_pass(&creation.render_pass_output.into())?;
+        let render_pass = device.get_or_create_render_pass(&desc.render_pass_output.into())?;
+        let pipeline_layout = self
+            .res_pool
+            .pipeline_layout
+            .get(desc.pipeline_layout)
+            .context("Pipeline layout not found.")?;
         let item = self.res_pool.raster_pipeline.malloc();
-        item.1.init(device, render_pass, creation, &self.res_pool.shader_module)?;
+        item.1.init(device, render_pass, pipeline_layout, desc, &self.res_pool.shader_module)?;
         Ok(item.0)
     }
 
@@ -589,6 +711,39 @@ impl RHI for VulkanRHI {
         let pipeline =
             self.res_pool.raster_pipeline.get(pipeline).context("Raster pipeline not found.")?;
         cb.bind_raster_pipeline(device, pipeline)
+    }
+
+    fn cmd_bind_descriptor_sets(
+        &self,
+        cb: Handle<CommandBuffer>,
+        bind_point: PipelineBindPoint,
+        pipeline_layout: Handle<PipelineLayout>,
+        first_set: u32,
+        descriptor_sets: &[Handle<DescriptorSet>],
+        dynamic_offsets: &[u32],
+    ) -> Result<()> {
+        let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
+        let pipeline_layout = self
+            .res_pool
+            .pipeline_layout
+            .get(pipeline_layout)
+            .context("Pipeline layout not found.")?;
+        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
+        let mut sets = SmallVec::<[ash::vk::DescriptorSet; 4]>::new();
+        for set in descriptor_sets {
+            sets.push(self.res_pool.descriptor_set.get(*set).unwrap().raw);
+        }
+        unsafe {
+            device.raw().cmd_bind_descriptor_sets(
+                cb.raw,
+                bind_point.into(),
+                pipeline_layout.raw,
+                first_set,
+                &sets,
+                dynamic_offsets,
+            );
+        }
+        Ok(())
     }
 
     fn cmd_set_scissor(

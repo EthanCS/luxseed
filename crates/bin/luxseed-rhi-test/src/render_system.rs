@@ -59,7 +59,7 @@ impl RenderSystem {
             .add_color(
                 format,
                 ImageLayout::PresentSrcKhr,
-                RenderTargetLoadAction::DontCare,
+                RenderTargetLoadAction::Clear,
                 SampleCount::Sample1,
             )
             .build();

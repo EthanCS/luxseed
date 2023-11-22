@@ -98,6 +98,31 @@ pub trait RHI {
     fn get_swapchain_image_count(&self, handle: Handle<Swapchain>) -> Result<u8>;
     fn destroy_swapchain(&mut self, swapchain: Handle<Swapchain>) -> Result<()>;
 
+    fn create_descriptor_set_layout(
+        &mut self,
+        device: Handle<Device>,
+        desc: &DescriptorSetLayoutCreateDesc,
+    ) -> Result<Handle<DescriptorSetLayout>>;
+    fn destroy_descriptor_set_layout(&mut self, handle: Handle<DescriptorSetLayout>) -> Result<()>;
+    fn create_descriptor_pool(
+        &mut self,
+        device: Handle<Device>,
+        desc: &DescriptorPoolCreateDesc,
+    ) -> Result<Handle<DescriptorPool>>;
+    fn destroy_descriptor_pool(&mut self, handle: Handle<DescriptorPool>) -> Result<()>;
+    fn allocate_descriptor_set(
+        &mut self,
+        pool: Handle<DescriptorPool>,
+        layout: Handle<DescriptorSetLayout>,
+    ) -> Result<Handle<DescriptorSet>>;
+    fn free_descriptor_sets(&mut self, sets: &[Handle<DescriptorSet>]) -> Result<()>;
+    fn update_descriptor_sets(
+        &self,
+        device: Handle<Device>,
+        writes: &[DescriptorSetWriteDesc],
+        copies: &[DescriptorSetCopyDesc],
+    ) -> Result<()>;
+
     // Texture / Texture View
     fn create_texture(
         &mut self,
@@ -131,6 +156,14 @@ pub trait RHI {
     fn destroy_buffer(&mut self, buffer: Handle<Buffer>) -> Result<()>;
 
     fn get_buffer_mapped_slice_mut(&mut self, buffer: Handle<Buffer>) -> Result<&mut [u8]>;
+
+    fn create_pipeline_layout(
+        &mut self,
+        device: Handle<Device>,
+        desc: &PipelineLayoutCreateDesc,
+    ) -> Result<Handle<PipelineLayout>>;
+
+    fn destroy_pipeline_layout(&mut self, pipeline_layout: Handle<PipelineLayout>) -> Result<()>;
 
     /// Creates a new raster pipeline with the given description and returns a handle to it.
     ///
@@ -217,6 +250,17 @@ pub trait RHI {
         width: u32,
         height: u32,
     ) -> Result<()>;
+
+    fn cmd_bind_descriptor_sets(
+        &self,
+        cb: Handle<CommandBuffer>,
+        bind_point: PipelineBindPoint,
+        pipeline_layout: Handle<PipelineLayout>,
+        first_set: u32,
+        descriptor_sets: &[Handle<DescriptorSet>],
+        dynamic_offsets: &[u32],
+    ) -> Result<()>;
+
     fn cmd_bind_vertex_buffers(
         &self,
         cb: Handle<CommandBuffer>,

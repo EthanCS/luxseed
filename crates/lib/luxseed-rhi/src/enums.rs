@@ -291,6 +291,27 @@ pub enum IndexType {
     U32,
 }
 
+#[derive(Clone, Copy)]
+pub enum DescriptorType {
+    Sampler,
+    CombinedImageSampler,
+    SampledImage,
+    StorageImage,
+    UniformTexelBuffer,
+    StorageTexelBuffer,
+    UniformBuffer,
+    StorageBuffer,
+    UniformBufferDynamic,
+    StorageBufferDynamic,
+    InputAttachment,
+}
+
+#[derive(Clone, Copy)]
+pub enum PipelineBindPoint {
+    Graphics,
+    Compute,
+}
+
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct BufferUsage : u32 {

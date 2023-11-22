@@ -1,18 +1,64 @@
-use anyhow::Context;
+use anyhow::{Context, Result};
 use ash::vk;
 
 use crate::{
-    define::{Device, RasterPipeline, RasterPipelineCreateDesc},
+    define::{
+        Device, PipelineLayout, PipelineLayoutCreateDesc, RasterPipeline, RasterPipelineCreateDesc,
+    },
     impl_handle,
     pool::{Handle, Handled, Pool},
 };
 
-use super::{device::VulkanDevice, shader::VulkanShader};
+use super::{descriptor::VulkanDescriptorSetLayout, device::VulkanDevice, shader::VulkanShader};
+
+#[derive(Default)]
+pub struct VulkanPipelineLayout {
+    pub handle: Option<Handle<PipelineLayout>>,
+    pub raw: vk::PipelineLayout,
+    pub device: Option<Handle<Device>>,
+}
+impl_handle!(VulkanPipelineLayout, PipelineLayout, handle);
+
+impl VulkanPipelineLayout {
+    pub fn init(
+        &mut self,
+        device: &VulkanDevice,
+        desc: &PipelineLayoutCreateDesc,
+        p_descriptor_set_layout: &Pool<VulkanDescriptorSetLayout>,
+    ) -> Result<()> {
+        let mut set_layouts = smallvec::SmallVec::<[vk::DescriptorSetLayout; 4]>::new();
+        for handle in desc.descriptor_set_layouts {
+            let layout =
+                p_descriptor_set_layout.get(*handle).context("Descriptor set layout not found")?;
+            set_layouts.push(layout.raw);
+        }
+
+        let raw = unsafe {
+            device.raw().create_pipeline_layout(
+                &vk::PipelineLayoutCreateInfo::builder()
+                    .set_layouts(&set_layouts)
+                    .push_constant_ranges(&[])
+                    .build(),
+                None,
+            )?
+        };
+        self.raw = raw;
+        self.device = device.get_handle();
+        Ok(())
+    }
+
+    pub fn destroy(&mut self, device: &VulkanDevice) {
+        unsafe {
+            device.raw().destroy_pipeline_layout(self.raw, None);
+        }
+        self.raw = vk::PipelineLayout::null();
+        self.device = None;
+    }
+}
 
 #[derive(Default)]
 pub struct VulkanRasterPipeline {
     pub raw: vk::Pipeline,
-    pub pipeline_layout: vk::PipelineLayout,
     pub handle: Option<Handle<RasterPipeline>>,
     pub device: Option<Handle<Device>>,
 }
@@ -23,6 +69,7 @@ impl VulkanRasterPipeline {
         &mut self,
         device: &VulkanDevice,
         render_pass: vk::RenderPass,
+        pipeline_layout: &VulkanPipelineLayout,
         desc: &RasterPipelineCreateDesc,
         p_shader: &Pool<VulkanShader>,
     ) -> anyhow::Result<()> {
@@ -157,15 +204,6 @@ impl VulkanRasterPipeline {
             shader_stages.push(shader_stage);
         }
 
-        // Pipeline Layout
-        let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder()
-            // .set_layouts(set_layouts)
-            // .push_constant_ranges(push_constant_ranges)
-            .build();
-        let pipeline_layout =
-            unsafe { device.raw().create_pipeline_layout(&pipeline_layout_info, None)? };
-        self.pipeline_layout = pipeline_layout;
-
         // Finish setting up the pipeline and create it
         let pipeline_info = vk::GraphicsPipelineCreateInfo::builder()
             .vertex_input_state(&vertex_input_state)
@@ -177,7 +215,7 @@ impl VulkanRasterPipeline {
             .color_blend_state(&color_blend_state)
             .multisample_state(&multisample_state)
             .stages(&shader_stages)
-            .layout(pipeline_layout)
+            .layout(pipeline_layout.raw)
             .render_pass(render_pass)
             .subpass(0)
             .base_pipeline_handle(vk::Pipeline::null())
@@ -196,11 +234,9 @@ impl VulkanRasterPipeline {
 
     pub fn destroy(&mut self, device: &VulkanDevice) {
         unsafe {
-            device.raw().destroy_pipeline_layout(self.pipeline_layout, None);
             device.raw().destroy_pipeline(self.raw, None);
         }
         self.device = None;
         self.raw = vk::Pipeline::null();
-        self.pipeline_layout = vk::PipelineLayout::null();
     }
 }

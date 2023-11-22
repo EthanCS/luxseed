@@ -17,7 +17,7 @@ use super::{
     buffer::VulkanBuffer,
     device::{VulkanDevice, VulkanQueue},
     framebuffer::VulkanFramebuffer,
-    pipeline::VulkanRasterPipeline,
+    pipeline::{VulkanPipelineLayout, VulkanRasterPipeline},
     render_pass::VulkanRenderPass,
 };
 
@@ -263,6 +263,26 @@ impl VulkanCommandBuffer {
                 first_index,
                 vertex_offset,
                 first_instance,
+            );
+        }
+    }
+
+    pub fn bind_descriptor_sets(
+        &self,
+        device: &VulkanDevice,
+        pipeline_layout: &VulkanPipelineLayout,
+        first_set: u32,
+        descriptor_sets: &[vk::DescriptorSet],
+        dynamic_offsets: &[u32],
+    ) {
+        unsafe {
+            device.raw().cmd_bind_descriptor_sets(
+                self.raw,
+                vk::PipelineBindPoint::GRAPHICS,
+                pipeline_layout.raw,
+                first_set,
+                descriptor_sets,
+                dynamic_offsets,
             );
         }
     }
