@@ -1,6 +1,7 @@
 use anyhow::Ok;
 use glam::{vec3, Mat4};
-use luxseed_rhi::{define::*, enums::*, pool::Handle, vulkan::descriptor};
+use luxseed_rhi::{define::*, enums::*, pool::Handle};
+use std::fs;
 use winit::window::Window;
 
 use crate::render_system::RenderSystem;
@@ -50,8 +51,20 @@ impl App {
     pub fn create(window: &Window) -> anyhow::Result<Self> {
         let mut sys = RenderSystem::create(window)?;
 
-        let vs = sys.compile_shader("hello", VERTEX_SHADER, ShaderStage::Vertex, "main")?;
-        let fs = sys.compile_shader("hello", FRAGMENT_SHADER, ShaderStage::Fragment, "main")?;
+        let vs = sys.compile_shader(
+            "hello",
+            &fs::read_to_string("assets/luxseed-rhi-test/hello_world.vert")
+                .expect("Should have been able to read the file"),
+            ShaderStage::Vertex,
+            "main",
+        )?;
+        let fs = sys.compile_shader(
+            "hello",
+            &fs::read_to_string("assets/luxseed-rhi-test/hello_world.frag")
+                .expect("Should have been able to read the file"),
+            ShaderStage::Fragment,
+            "main",
+        )?;
 
         // Vertex buffer
         let vertices = vec![
@@ -291,35 +304,3 @@ impl App {
         self.sys.destroy().unwrap();
     }
 }
-
-const VERTEX_SHADER: &str = "
-#version 450
-
-layout(binding = 0) uniform UniformBufferObject {
-    mat4 model;
-    mat4 view;
-    mat4 proj;
-} ubo;
-
-layout(location = 0) in vec2 inPosition;
-layout(location = 1) in vec3 inColor;
-
-layout(location = 0) out vec3 fragColor;
-
-void main() {
-    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 0.0, 1.0);
-    fragColor = inColor;
-}
-";
-
-const FRAGMENT_SHADER: &str = "
-#version 450
-
-layout(location = 0) in vec3 fragColor;
-
-layout(location = 0) out vec4 outColor;
-
-void main() {
-    outColor = vec4(fragColor, 1.0);
-}
-";
