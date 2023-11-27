@@ -2,7 +2,7 @@ use ash::vk;
 use std::collections::HashMap;
 
 use crate::{
-    define::{Device, Texture, TextureView, TextureViewCreateDesc},
+    define::{Device, Texture, TextureCreateDesc, TextureView, TextureViewCreateDesc},
     impl_handle,
     pool::{Handle, Handled, Pool},
 };
@@ -11,17 +11,14 @@ use super::device::VulkanDevice;
 
 #[derive(Default, Clone, Copy)]
 pub struct VulkanImageDesc {
-    pub flags: vk::ImageCreateFlags,
     pub image_type: vk::ImageType,
     pub format: vk::Format,
     pub extent: vk::Extent3D,
     pub samples: vk::SampleCountFlags,
-    pub mip_levels: u8,
-    pub array_layers: u8,
+    pub mip_levels: u32,
+    pub array_layers: u32,
     pub tiling: vk::ImageTiling,
     pub usage: vk::ImageUsageFlags,
-    pub sharing_mode: vk::SharingMode,
-    pub initial_layout: vk::ImageLayout,
 }
 
 #[derive(Default)]
@@ -35,6 +32,40 @@ pub struct VulkanImage {
 impl_handle!(VulkanImage, Texture, handle);
 
 impl VulkanImage {
+    pub fn init(&mut self, device: &VulkanDevice, desc: &TextureCreateDesc) -> anyhow::Result<()> {
+        let image_desc = VulkanImageDesc {
+            image_type: desc.texture_type.into(),
+            format: desc.format.into(),
+            extent: vk::Extent3D {
+                width: desc.extent[0],
+                height: desc.extent[1],
+                depth: desc.extent[2],
+            },
+            samples: desc.samples.into(),
+            mip_levels: desc.mip_levels,
+            array_layers: desc.array_layers,
+            tiling: desc.tiling.into(),
+            usage: desc.usage.into(),
+        };
+        let image_info = vk::ImageCreateInfo::builder()
+            .image_type(image_desc.image_type)
+            .extent(image_desc.extent)
+            .mip_levels(image_desc.mip_levels)
+            .array_layers(image_desc.array_layers)
+            .format(image_desc.format)
+            .tiling(image_desc.tiling)
+            .samples(image_desc.samples)
+            .usage(image_desc.usage)
+            .initial_layout(desc.initial_layout.into())
+            .sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .flags(vk::ImageCreateFlags::empty());
+        self.raw = unsafe { device.raw().create_image(&image_info, None)? };
+        self.device = device.get_handle();
+        self.desc = image_desc;
+        self.views.clear();
+        Ok(())
+    }
+
     pub fn get_or_create_view(
         &mut self,
         device: &VulkanDevice,

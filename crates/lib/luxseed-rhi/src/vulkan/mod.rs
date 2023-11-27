@@ -406,9 +406,12 @@ impl RHI for VulkanRHI {
     fn create_texture(
         &mut self,
         device: Handle<Device>,
-        desc: &TextureCreation,
+        desc: &TextureCreateDesc,
     ) -> Result<Handle<Texture>> {
-        todo!()
+        let device = self.res_pool.device.get(device).context("Device not found.")?;
+        let item = self.res_pool.texture.malloc();
+        item.1.init(device, desc)?;
+        Ok(item.0)
     }
 
     fn destroy_texture(&mut self, handle: Handle<Texture>) -> Result<()> {

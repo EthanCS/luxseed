@@ -127,14 +127,14 @@ pub trait RHI {
     fn create_texture(
         &mut self,
         device: Handle<Device>,
-        creation: &TextureCreation,
+        desc: &TextureCreateDesc,
     ) -> Result<Handle<Texture>>;
     fn destroy_texture(&mut self, handle: Handle<Texture>) -> Result<()>;
     fn create_texture_view(
         &mut self,
         device: Handle<Device>,
         texture: Handle<Texture>,
-        creation: &TextureViewCreateDesc,
+        desc: &TextureViewCreateDesc,
     ) -> Result<Handle<TextureView>>;
     fn destroy_texture_view(&mut self, handle: Handle<TextureView>) -> Result<()>;
 

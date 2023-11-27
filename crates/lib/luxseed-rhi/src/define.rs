@@ -37,30 +37,17 @@ pub struct SwapchainCreation {
 
 pub const TEXTURE_DEFAULT_NAME: &str = "Texture_Default";
 
-pub struct TextureCreation<'a> {
+pub struct TextureCreateDesc<'a> {
     pub name: &'a str,
     pub format: Format,
     pub extent: [u32; 3],
     pub texture_type: TextureType,
-    pub texture_usage: TextureUsage,
-    pub texture_tiling: TextureTiling,
+    pub usage: TextureUsageFlag,
+    pub tiling: TextureTiling,
     pub mip_levels: u32,
     pub array_layers: u32,
-}
-
-impl<'a> Default for TextureCreation<'a> {
-    fn default() -> Self {
-        Self {
-            name: TEXTURE_DEFAULT_NAME,
-            format: Format::R8G8B8A8_UNORM,
-            extent: [1, 1, 0],
-            texture_type: TextureType::Texture2D,
-            texture_usage: TextureUsage::Sampled,
-            texture_tiling: Default::default(),
-            mip_levels: 1,
-            array_layers: 1,
-        }
-    }
+    pub samples: SampleCount,
+    pub initial_layout: ImageLayout,
 }
 
 #[derive(Clone, Copy)]
@@ -393,7 +380,7 @@ pub struct VertexInputAttribute {
 pub struct BufferCreateDesc<'a> {
     pub name: &'a str,
     pub size: usize,
-    pub usage: BufferUsage,
+    pub usage: BufferUsageFlag,
     pub memory: MemoryLocation,
     pub initial_data: Option<&'a [u8]>,
 }

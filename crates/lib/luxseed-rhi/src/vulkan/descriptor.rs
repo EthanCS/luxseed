@@ -139,7 +139,7 @@ impl VulkanDevice {
     pub fn update_descriptor_sets(
         &self,
         writes: &[DescriptorSetWriteDesc],
-        copies: &[DescriptorSetCopyDesc],
+        _copies: &[DescriptorSetCopyDesc],
         p_buffer: &Pool<VulkanBuffer>,
         p_descriptor_sets: &Pool<VulkanDescriptorSet>,
     ) -> Result<()> {

@@ -243,21 +243,6 @@ impl From<RenderTargetLoadAction> for vk::AttachmentLoadOp {
     }
 }
 
-impl From<TextureUsage> for vk::ImageUsageFlags {
-    fn from(value: TextureUsage) -> Self {
-        match value {
-            TextureUsage::TransferSrc => vk::ImageUsageFlags::TRANSFER_SRC,
-            TextureUsage::TransferDst => vk::ImageUsageFlags::TRANSFER_DST,
-            TextureUsage::Sampled => vk::ImageUsageFlags::SAMPLED,
-            TextureUsage::Storage => vk::ImageUsageFlags::STORAGE,
-            TextureUsage::ColorAttachment => vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            TextureUsage::DepthStencilAttachment => vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
-            TextureUsage::TransientAttachment => vk::ImageUsageFlags::TRANSIENT_ATTACHMENT,
-            TextureUsage::InputAttachment => vk::ImageUsageFlags::INPUT_ATTACHMENT,
-        }
-    }
-}
-
 impl From<CommandBufferLevel> for vk::CommandBufferLevel {
     fn from(value: CommandBufferLevel) -> Self {
         match value {
@@ -363,35 +348,66 @@ impl From<VertexInputRate> for vk::VertexInputRate {
     }
 }
 
-impl From<BufferUsage> for vk::BufferUsageFlags {
-    fn from(value: BufferUsage) -> Self {
+impl From<BufferUsageFlag> for vk::BufferUsageFlags {
+    fn from(value: BufferUsageFlag) -> Self {
         let mut ret = vk::BufferUsageFlags::empty();
-        if value.contains(BufferUsage::TRANSFER_SRC) {
+        if value.contains(BufferUsageFlag::TRANSFER_SRC) {
             ret |= vk::BufferUsageFlags::TRANSFER_SRC;
         }
-        if value.contains(BufferUsage::TRANSFER_DST) {
+        if value.contains(BufferUsageFlag::TRANSFER_DST) {
             ret |= vk::BufferUsageFlags::TRANSFER_DST;
         }
-        if value.contains(BufferUsage::UNIFORM_TEXEL_BUFFER) {
+        if value.contains(BufferUsageFlag::UNIFORM_TEXEL_BUFFER) {
             ret |= vk::BufferUsageFlags::UNIFORM_TEXEL_BUFFER;
         }
-        if value.contains(BufferUsage::STORAGE_TEXEL_BUFFER) {
+        if value.contains(BufferUsageFlag::STORAGE_TEXEL_BUFFER) {
             ret |= vk::BufferUsageFlags::STORAGE_TEXEL_BUFFER;
         }
-        if value.contains(BufferUsage::UNIFORM_BUFFER) {
+        if value.contains(BufferUsageFlag::UNIFORM_BUFFER) {
             ret |= vk::BufferUsageFlags::UNIFORM_BUFFER;
         }
-        if value.contains(BufferUsage::STORAGE_BUFFER) {
+        if value.contains(BufferUsageFlag::STORAGE_BUFFER) {
             ret |= vk::BufferUsageFlags::STORAGE_BUFFER;
         }
-        if value.contains(BufferUsage::INDEX_BUFFER) {
+        if value.contains(BufferUsageFlag::INDEX_BUFFER) {
             ret |= vk::BufferUsageFlags::INDEX_BUFFER;
         }
-        if value.contains(BufferUsage::VERTEX_BUFFER) {
+        if value.contains(BufferUsageFlag::VERTEX_BUFFER) {
             ret |= vk::BufferUsageFlags::VERTEX_BUFFER;
         }
-        if value.contains(BufferUsage::INDIRECT_BUFFER) {
+        if value.contains(BufferUsageFlag::INDIRECT_BUFFER) {
             ret |= vk::BufferUsageFlags::INDIRECT_BUFFER;
+        }
+        ret
+    }
+}
+
+impl From<TextureUsageFlag> for vk::ImageUsageFlags {
+    fn from(value: TextureUsageFlag) -> Self {
+        let mut ret = vk::ImageUsageFlags::empty();
+        if value.contains(TextureUsageFlag::TRANSFER_SRC) {
+            ret |= vk::ImageUsageFlags::TRANSFER_SRC;
+        }
+        if value.contains(TextureUsageFlag::TRANSFER_DST) {
+            ret |= vk::ImageUsageFlags::TRANSFER_DST;
+        }
+        if value.contains(TextureUsageFlag::SAMPLED) {
+            ret |= vk::ImageUsageFlags::SAMPLED;
+        }
+        if value.contains(TextureUsageFlag::STORAGE) {
+            ret |= vk::ImageUsageFlags::STORAGE;
+        }
+        if value.contains(TextureUsageFlag::COLOR_ATTACHMENT) {
+            ret |= vk::ImageUsageFlags::COLOR_ATTACHMENT;
+        }
+        if value.contains(TextureUsageFlag::DEPTH_STENCIL_ATTACHMENT) {
+            ret |= vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT;
+        }
+        if value.contains(TextureUsageFlag::TRANSIENT_ATTACHMENT) {
+            ret |= vk::ImageUsageFlags::TRANSIENT_ATTACHMENT;
+        }
+        if value.contains(TextureUsageFlag::INPUT_ATTACHMENT) {
+            ret |= vk::ImageUsageFlags::INPUT_ATTACHMENT;
         }
         ret
     }
@@ -450,6 +466,15 @@ impl From<PipelineBindPoint> for vk::PipelineBindPoint {
         match value {
             PipelineBindPoint::Graphics => vk::PipelineBindPoint::GRAPHICS,
             PipelineBindPoint::Compute => vk::PipelineBindPoint::COMPUTE,
+        }
+    }
+}
+
+impl From<TextureTiling> for vk::ImageTiling {
+    fn from(value: TextureTiling) -> Self {
+        match value {
+            TextureTiling::Optimal => vk::ImageTiling::OPTIMAL,
+            TextureTiling::Linear => vk::ImageTiling::LINEAR,
         }
     }
 }
