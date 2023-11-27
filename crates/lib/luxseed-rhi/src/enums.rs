@@ -39,7 +39,7 @@ impl fmt::Display for QueueType {
 }
 
 #[derive(Default, Clone, Copy, Debug)]
-pub enum TextureType {
+pub enum ImageType {
     Texture1D,
     #[default]
     Texture2D,
@@ -299,6 +299,33 @@ pub enum DescriptorType {
 pub enum PipelineBindPoint {
     Graphics,
     Compute,
+}
+
+#[derive(Clone, Copy)]
+pub enum ImageAspectFlag {
+    Color,
+    Depth,
+    Stencil,
+}
+
+pub enum AccessFlag {
+    IndirectCommandRead,
+    IndexRead,
+    VertexAttributeRead,
+    UniformRead,
+    InputAttachmentRead,
+    ShaderRead,
+    ShaderWrite,
+    ColorAttachmentRead,
+    ColorAttachmentWrite,
+    DepthStencilAttachmentRead,
+    DepthStencilAttachmentWrite,
+    TransferRead,
+    TransferWrite,
+    HostRead,
+    HostWrite,
+    MemoryRead,
+    MemoryWrite,
 }
 
 bitflags! {

@@ -94,7 +94,7 @@ pub trait RHI {
         &self,
         handle: Handle<Swapchain>,
         index: usize,
-    ) -> Result<Handle<Texture>>;
+    ) -> Result<Handle<Image>>;
     fn get_swapchain_image_count(&self, handle: Handle<Swapchain>) -> Result<u8>;
     fn destroy_swapchain(&mut self, swapchain: Handle<Swapchain>) -> Result<()>;
 
@@ -127,13 +127,13 @@ pub trait RHI {
     fn create_texture(
         &mut self,
         device: Handle<Device>,
-        desc: &TextureCreateDesc,
-    ) -> Result<Handle<Texture>>;
-    fn destroy_texture(&mut self, handle: Handle<Texture>) -> Result<()>;
+        desc: &ImageCreateDesc,
+    ) -> Result<Handle<Image>>;
+    fn destroy_texture(&mut self, handle: Handle<Image>) -> Result<()>;
     fn create_texture_view(
         &mut self,
         device: Handle<Device>,
-        texture: Handle<Texture>,
+        texture: Handle<Image>,
         desc: &TextureViewCreateDesc,
     ) -> Result<Handle<TextureView>>;
     fn destroy_texture_view(&mut self, handle: Handle<TextureView>) -> Result<()>;
@@ -281,6 +281,14 @@ pub trait RHI {
         src: Handle<Buffer>,
         dst: Handle<Buffer>,
         regions: &[BufferCopyRegion],
+    ) -> Result<()>;
+    fn cmd_copy_buffer_to_texture(
+        &self,
+        cb: Handle<CommandBuffer>,
+        src: Handle<Buffer>,
+        dst: Handle<Image>,
+        dst_image_layout: ImageLayout,
+        regions: &[BufferImageCopyRegion],
     ) -> Result<()>;
     fn cmd_draw(
         &self,

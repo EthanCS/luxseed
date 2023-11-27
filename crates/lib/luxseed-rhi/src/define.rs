@@ -37,11 +37,11 @@ pub struct SwapchainCreation {
 
 pub const TEXTURE_DEFAULT_NAME: &str = "Texture_Default";
 
-pub struct TextureCreateDesc<'a> {
+pub struct ImageCreateDesc<'a> {
     pub name: &'a str,
     pub format: Format,
     pub extent: [u32; 3],
-    pub texture_type: TextureType,
+    pub texture_type: ImageType,
     pub usage: TextureUsageFlag,
     pub tiling: TextureTiling,
     pub mip_levels: u32,
@@ -393,6 +393,19 @@ pub struct BufferCopyRegion {
 }
 
 #[derive(Clone, Copy)]
+pub struct BufferImageCopyRegion {
+    pub buffer_offset: u64,
+    pub buffer_row_length: u32,
+    pub buffer_image_height: u32,
+    pub aspect_mask: ImageAspectFlag,
+    pub mip_level: u32,
+    pub base_array_layer: u32,
+    pub layer_count: u32,
+    pub image_offset: [i32; 3],
+    pub image_extent: [u32; 3],
+}
+
+#[derive(Clone, Copy)]
 pub struct DescriptorSetLayoutBinding {
     pub binding: u32,
     pub descriptor_type: DescriptorType,
@@ -439,6 +452,39 @@ pub struct DescriptorSetCopyDesc {
     pub descriptor_count: u32,
 }
 
+#[derive(Clone, Copy)]
+pub struct ImageSubresourceRange {
+    pub aspect_mask: ImageAspectFlag,
+    pub base_mip_level: u8,
+    pub level_count: u8,
+    pub base_array_layer: u8,
+    pub layer_count: u8,
+}
+
+pub struct MemoryBarrier {
+    pub src_queue_family_index: u32,
+    pub dst_queue_family_index: u32,
+    pub src_access_mask: AccessFlag,
+    pub dst_access_mask: AccessFlag,
+}
+
+pub struct BufferMemoryBarrier {
+    pub buffer: Handle<Buffer>,
+    pub src_queue_family_index: u32,
+    pub dst_queue_family_index: u32,
+    pub src_access_mask: AccessFlag,
+    pub dst_access_mask: AccessFlag,
+}
+
+pub struct ImageMemoryBarrier {
+    pub image: Handle<Image>,
+    pub subresource_range: ImageSubresourceRange,
+    pub old_layout: ImageLayout,
+    pub new_layout: ImageLayout,
+    pub src_queue_family_index: u32,
+    pub dst_queue_family_index: u32,
+}
+
 macro_rules! define_rhi_resources {
     ($($name:ident),*) => {
         $(#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -451,7 +497,7 @@ define_rhi_resources!(
     Surface,
     Queue,
     Swapchain,
-    Texture,
+    Image,
     TextureView,
     Shader,
     PipelineLayout,

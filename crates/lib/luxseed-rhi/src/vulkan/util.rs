@@ -1,7 +1,10 @@
 use ash::vk;
 
 use crate::{
-    define::{BufferCopyRegion, ClearColor, ClearDepthStencil, RenderPassOutput, StencilOpState},
+    define::{
+        BufferCopyRegion, ClearColor, ClearDepthStencil, ImageSubresourceRange, RenderPassOutput,
+        StencilOpState,
+    },
     enums::*,
 };
 
@@ -72,12 +75,12 @@ impl From<TextureViewType> for vk::ImageViewType {
     }
 }
 
-impl From<TextureType> for vk::ImageType {
-    fn from(item: TextureType) -> Self {
+impl From<ImageType> for vk::ImageType {
+    fn from(item: ImageType) -> Self {
         match item {
-            TextureType::Texture1D => vk::ImageType::TYPE_1D,
-            TextureType::Texture2D => vk::ImageType::TYPE_2D,
-            TextureType::Texture3D => vk::ImageType::TYPE_3D,
+            ImageType::Texture1D => vk::ImageType::TYPE_1D,
+            ImageType::Texture2D => vk::ImageType::TYPE_2D,
+            ImageType::Texture3D => vk::ImageType::TYPE_3D,
         }
     }
 }
@@ -475,6 +478,28 @@ impl From<TextureTiling> for vk::ImageTiling {
         match value {
             TextureTiling::Optimal => vk::ImageTiling::OPTIMAL,
             TextureTiling::Linear => vk::ImageTiling::LINEAR,
+        }
+    }
+}
+
+impl From<ImageAspectFlag> for vk::ImageAspectFlags {
+    fn from(value: ImageAspectFlag) -> Self {
+        match value {
+            ImageAspectFlag::Color => vk::ImageAspectFlags::COLOR,
+            ImageAspectFlag::Depth => vk::ImageAspectFlags::DEPTH,
+            ImageAspectFlag::Stencil => vk::ImageAspectFlags::STENCIL,
+        }
+    }
+}
+
+impl From<ImageSubresourceRange> for vk::ImageSubresourceRange {
+    fn from(value: ImageSubresourceRange) -> Self {
+        vk::ImageSubresourceRange {
+            aspect_mask: value.aspect_mask.into(),
+            base_mip_level: value.base_mip_level.into(),
+            level_count: value.level_count.into(),
+            base_array_layer: value.base_array_layer.into(),
+            layer_count: value.layer_count.into(),
         }
     }
 }

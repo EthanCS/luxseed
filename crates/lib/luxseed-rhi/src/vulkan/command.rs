@@ -1,15 +1,16 @@
-use anyhow::Ok;
+use anyhow::{Context, Ok};
 use ash::vk::{self};
 use smallvec::SmallVec;
 
 use crate::{
     define::{
-        BufferCopyRegion, ClearColor, ClearDepthStencil, CommandBuffer, CommandPool, Device,
-        Framebuffer, RenderPass,
+        BufferCopyRegion, BufferImageCopyRegion, BufferMemoryBarrier, ClearColor,
+        ClearDepthStencil, CommandBuffer, CommandPool, Device, Framebuffer, ImageMemoryBarrier,
+        MemoryBarrier, RenderPass,
     },
     enums::*,
     impl_handle,
-    pool::{Handle, Handled},
+    pool::{Handle, Handled, Pool},
     MAX_RENDER_TARGETS,
 };
 
@@ -17,6 +18,7 @@ use super::{
     buffer::VulkanBuffer,
     device::{VulkanDevice, VulkanQueue},
     framebuffer::VulkanFramebuffer,
+    image::VulkanImage,
     pipeline::{VulkanPipelineLayout, VulkanRasterPipeline},
     render_pass::VulkanRenderPass,
 };
@@ -267,6 +269,7 @@ impl VulkanCommandBuffer {
         }
     }
 
+    #[inline]
     pub fn bind_descriptor_sets(
         &self,
         device: &VulkanDevice,
@@ -302,6 +305,95 @@ impl VulkanCommandBuffer {
         unsafe {
             device.raw().cmd_copy_buffer(self.raw, src.raw, dst.raw, &v);
         }
+    }
+
+    #[inline]
+    pub fn copy_buffer_to_image(
+        &self,
+        device: &VulkanDevice,
+        src: &VulkanBuffer,
+        dst: &VulkanImage,
+        dst_image_layout: ImageLayout,
+        regions: &[BufferImageCopyRegion],
+    ) {
+        let mut regions_ = SmallVec::<[vk::BufferImageCopy; 4]>::new();
+        for region in regions {
+            regions_.push(
+                vk::BufferImageCopy::builder()
+                    .buffer_offset(region.buffer_offset)
+                    .buffer_image_height(region.buffer_image_height)
+                    .buffer_row_length(region.buffer_row_length)
+                    .image_subresource(
+                        vk::ImageSubresourceLayers::builder()
+                            .aspect_mask(region.aspect_mask.into())
+                            .mip_level(region.mip_level)
+                            .base_array_layer(region.base_array_layer)
+                            .layer_count(region.layer_count)
+                            .build(),
+                    )
+                    .image_offset(vk::Offset3D {
+                        x: region.image_offset[0],
+                        y: region.image_offset[1],
+                        z: region.image_offset[2],
+                    })
+                    .image_extent(vk::Extent3D {
+                        width: region.image_extent[0],
+                        height: region.image_extent[1],
+                        depth: region.image_extent[2],
+                    })
+                    .build(),
+            );
+        }
+        unsafe {
+            device.raw().cmd_copy_buffer_to_image(
+                self.raw,
+                src.raw,
+                dst.raw,
+                dst_image_layout.into(),
+                &regions_,
+            );
+        }
+    }
+
+    #[inline]
+    pub fn pipeline_barrier(
+        &self,
+        device: &VulkanDevice,
+        _barriers: &[MemoryBarrier],
+        _buffer_barriers: &[BufferMemoryBarrier],
+        image_barriers: &[ImageMemoryBarrier],
+        p_image: &Pool<VulkanImage>,
+    ) -> anyhow::Result<()> {
+        let mut memory_barriers = SmallVec::<[vk::MemoryBarrier; 4]>::new();
+        let mut buffer_memory_barriers = SmallVec::<[vk::BufferMemoryBarrier; 4]>::new();
+
+        let mut image_memory_barriers = SmallVec::<[vk::ImageMemoryBarrier; 4]>::new();
+        for barrier in image_barriers {
+            image_memory_barriers.push(
+                vk::ImageMemoryBarrier::builder()
+                    .old_layout(barrier.old_layout.into())
+                    .new_layout(barrier.new_layout.into())
+                    .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                    .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                    .image(p_image.get(barrier.image).context("Image not found")?.raw)
+                    .subresource_range(barrier.subresource_range.into())
+                    .src_access_mask(vk::AccessFlags::empty())
+                    .dst_access_mask(vk::AccessFlags::empty())
+                    .build(),
+            );
+        }
+        unsafe {
+            device.raw().cmd_pipeline_barrier(
+                self.raw,
+                vk::PipelineStageFlags::ALL_COMMANDS,
+                vk::PipelineStageFlags::ALL_COMMANDS,
+                vk::DependencyFlags::empty(),
+                &memory_barriers,
+                &buffer_memory_barriers,
+                &image_memory_barriers,
+            );
+        }
+        Ok(())
     }
 
     #[inline]

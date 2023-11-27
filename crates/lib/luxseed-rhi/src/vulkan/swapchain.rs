@@ -5,7 +5,7 @@ use ash::{
 };
 
 use crate::{
-    define::{Device, Surface, Swapchain, SwapchainCreation, Texture},
+    define::{Device, Surface, Swapchain, SwapchainCreation, Image},
     impl_handle,
     pool::{Handle, Handled, Pool},
     vulkan::{device::VulkanQueue, surface::VulkanSurface},
@@ -26,7 +26,7 @@ pub struct VulkanSwapchain {
     pub surface: Option<Handle<Surface>>,
     pub loader: Option<khr::Swapchain>,
     pub surface_format: SurfaceFormatKHR,
-    pub back_buffers: Vec<Handle<Texture>>,
+    pub back_buffers: Vec<Handle<Image>>,
     pub image_count: u8,
 }
 impl_handle!(VulkanSwapchain, Swapchain, handle);

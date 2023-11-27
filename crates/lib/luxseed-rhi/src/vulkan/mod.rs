@@ -303,7 +303,7 @@ impl RHI for VulkanRHI {
         &self,
         handle: Handle<Swapchain>,
         index: usize,
-    ) -> Result<Handle<Texture>> {
+    ) -> Result<Handle<Image>> {
         let swapchain = self.res_pool.swapchain.get(handle).context("Swapchain not found.")?;
         Ok(swapchain.back_buffers[index])
     }
@@ -406,15 +406,15 @@ impl RHI for VulkanRHI {
     fn create_texture(
         &mut self,
         device: Handle<Device>,
-        desc: &TextureCreateDesc,
-    ) -> Result<Handle<Texture>> {
+        desc: &ImageCreateDesc,
+    ) -> Result<Handle<Image>> {
         let device = self.res_pool.device.get(device).context("Device not found.")?;
         let item = self.res_pool.texture.malloc();
         item.1.init(device, desc)?;
         Ok(item.0)
     }
 
-    fn destroy_texture(&mut self, handle: Handle<Texture>) -> Result<()> {
+    fn destroy_texture(&mut self, handle: Handle<Image>) -> Result<()> {
         if let Some(v) = self.res_pool.texture.get_mut(handle) {
             let device =
                 self.res_pool.device.get(v.device.unwrap()).context("Device not found.")?;
@@ -435,7 +435,7 @@ impl RHI for VulkanRHI {
     fn create_texture_view(
         &mut self,
         device: Handle<Device>,
-        texture: Handle<Texture>,
+        texture: Handle<Image>,
         desc: &TextureViewCreateDesc,
     ) -> Result<Handle<TextureView>> {
         let device = self.res_pool.device.get(device).context("Device not found.")?;
@@ -860,6 +860,22 @@ impl RHI for VulkanRHI {
             vertex_offset,
             first_instance,
         );
+        Ok(())
+    }
+
+    fn cmd_copy_buffer_to_texture(
+        &self,
+        cb: Handle<CommandBuffer>,
+        src: Handle<Buffer>,
+        dst: Handle<Image>,
+        dst_image_layout: ImageLayout,
+        regions: &[BufferImageCopyRegion],
+    ) -> Result<()> {
+        let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
+        let src = self.res_pool.buffer.get(src).context("Source buffer not found.")?;
+        let dst = self.res_pool.texture.get(dst).context("Destination texture not found.")?;
+        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
+        cb.copy_buffer_to_image(device, src, dst, dst_image_layout, regions);
         Ok(())
     }
 

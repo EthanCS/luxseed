@@ -2,7 +2,7 @@ use ash::vk;
 use std::collections::HashMap;
 
 use crate::{
-    define::{Device, Texture, TextureCreateDesc, TextureView, TextureViewCreateDesc},
+    define::{Device, Image, ImageCreateDesc, TextureView, TextureViewCreateDesc},
     impl_handle,
     pool::{Handle, Handled, Pool},
 };
@@ -23,16 +23,16 @@ pub struct VulkanImageDesc {
 
 #[derive(Default)]
 pub struct VulkanImage {
-    pub handle: Option<Handle<Texture>>,
+    pub handle: Option<Handle<Image>>,
     pub raw: vk::Image,
     pub device: Option<Handle<Device>>,
     pub desc: VulkanImageDesc,
     pub views: HashMap<VulkanImageViewDesc, Handle<TextureView>>,
 }
-impl_handle!(VulkanImage, Texture, handle);
+impl_handle!(VulkanImage, Image, handle);
 
 impl VulkanImage {
-    pub fn init(&mut self, device: &VulkanDevice, desc: &TextureCreateDesc) -> anyhow::Result<()> {
+    pub fn init(&mut self, device: &VulkanDevice, desc: &ImageCreateDesc) -> anyhow::Result<()> {
         let image_desc = VulkanImageDesc {
             image_type: desc.texture_type.into(),
             format: desc.format.into(),
@@ -131,7 +131,7 @@ pub struct VulkanImageView {
     pub handle: Option<Handle<TextureView>>,
     pub raw: vk::ImageView,
     pub device: Option<Handle<Device>>,
-    pub texture: Option<Handle<Texture>>,
+    pub texture: Option<Handle<Image>>,
     pub desc: VulkanImageViewDesc,
 }
 impl_handle!(VulkanImageView, TextureView, handle);
