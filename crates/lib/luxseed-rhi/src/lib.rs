@@ -218,7 +218,7 @@ pub trait RHI {
     fn destroy_command_buffer(&mut self, command_buffer: Handle<CommandBuffer>) -> Result<()>;
 
     // CMDs
-    fn cmd_begin(&self, cb: Handle<CommandBuffer>) -> Result<()>;
+    fn cmd_begin(&self, cb: Handle<CommandBuffer>, desc: CommandBufferBeginDesc) -> Result<()>;
     fn cmd_end(&self, cb: Handle<CommandBuffer>) -> Result<()>;
     fn cmd_begin_render_pass(
         &self,

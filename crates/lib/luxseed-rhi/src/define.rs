@@ -480,6 +480,12 @@ pub struct ImageMemoryBarrier {
     pub dst_queue_family_index: Option<u32>,
 }
 
+
+#[derive(Default, Clone, Copy)]
+pub struct CommandBufferBeginDesc {
+    pub one_time_submit: bool,
+}
+
 macro_rules! define_rhi_resources {
     ($($name:ident),*) => {
         $(#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

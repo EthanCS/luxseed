@@ -246,7 +246,7 @@ impl App {
 
             let cb = self.command_buffers[self.sys.frame];
             self.sys.rhi.reset_command_buffer(cb, false)?;
-            self.sys.rhi.cmd_begin(cb)?;
+            self.sys.rhi.cmd_begin(cb, CommandBufferBeginDesc::default())?;
             let rp = self.sys.swapchain_render_pass;
             let fb = self.sys.get_swapchain_framebuffer();
             let cv = ClearColor::new([0.0, 0.0, 0.0, 1.0]);

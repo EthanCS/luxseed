@@ -672,10 +672,10 @@ impl RHI for VulkanRHI {
         Ok(())
     }
 
-    fn cmd_begin(&self, cb: Handle<CommandBuffer>) -> Result<()> {
+    fn cmd_begin(&self, cb: Handle<CommandBuffer>, desc: CommandBufferBeginDesc) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
         let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        cb.begin(device)
+        cb.begin(device, desc)
     }
 
     fn cmd_end(&self, cb: Handle<CommandBuffer>) -> Result<()> {

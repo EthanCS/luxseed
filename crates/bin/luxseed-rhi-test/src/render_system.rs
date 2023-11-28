@@ -192,20 +192,13 @@ impl RenderSystem {
         Ok(())
     }
 
-    pub fn copy_buffer(
-        &mut self,
-        src: Handle<Buffer>,
-        dst: Handle<Buffer>,
-        size: u64,
-    ) -> Result<()> {
+    pub fn begin_single_time_commands(&mut self) -> Result<Handle<CommandBuffer>> {
         let cb = self.rhi.create_command_buffer(self.command_pool, CommandBufferLevel::Primary)?;
-        self.rhi.cmd_begin(cb)?;
-        self.rhi.cmd_copy_buffer(
-            cb,
-            src,
-            dst,
-            &[BufferCopyRegion { size, ..Default::default() }],
-        )?;
+        self.rhi.cmd_begin(cb, CommandBufferBeginDesc { one_time_submit: true })?;
+        Ok(cb)
+    }
+
+    pub fn end_single_time_commands(&mut self, cb: Handle<CommandBuffer>) -> Result<()> {
         self.rhi.cmd_end(cb)?;
         self.rhi.queue_submit(
             self.graphics_queue,
@@ -220,6 +213,23 @@ impl RenderSystem {
         // wait for the queue to finish executing the command buffer
         self.rhi.queue_wait_idle(self.graphics_queue)?;
         self.rhi.destroy_command_buffer(cb)?;
+        Ok(())
+    }
+
+    pub fn copy_buffer(
+        &mut self,
+        src: Handle<Buffer>,
+        dst: Handle<Buffer>,
+        size: u64,
+    ) -> Result<()> {
+        let cb = self.begin_single_time_commands()?;
+        self.rhi.cmd_copy_buffer(
+            cb,
+            src,
+            dst,
+            &[BufferCopyRegion { size, ..Default::default() }],
+        )?;
+        self.end_single_time_commands(cb)?;
         Ok(())
     }
 

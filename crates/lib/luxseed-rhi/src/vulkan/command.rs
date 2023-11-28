@@ -3,11 +3,7 @@ use ash::vk::{self};
 use smallvec::SmallVec;
 
 use crate::{
-    define::{
-        BufferCopyRegion, BufferImageCopyRegion, BufferMemoryBarrier, ClearColor,
-        ClearDepthStencil, CommandBuffer, CommandPool, Device, Framebuffer, ImageMemoryBarrier,
-        MemoryBarrier, RenderPass,
-    },
+    define::*,
     enums::*,
     flag::PipelineStageFlags,
     impl_handle,
@@ -100,8 +96,12 @@ impl VulkanCommandBuffer {
     }
 
     #[inline]
-    pub fn begin(&self, device: &VulkanDevice) -> anyhow::Result<()> {
-        let begin_info = vk::CommandBufferBeginInfo::builder().build();
+    pub fn begin(&self, device: &VulkanDevice, desc: CommandBufferBeginDesc) -> anyhow::Result<()> {
+        let mut flag = vk::CommandBufferUsageFlags::empty();
+        if desc.one_time_submit {
+            flag |= vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT;
+        }
+        let begin_info = vk::CommandBufferBeginInfo::builder().flags(flag).build();
         unsafe {
             device.raw().begin_command_buffer(self.raw, &begin_info)?;
         }
