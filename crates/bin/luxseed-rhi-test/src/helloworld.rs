@@ -271,7 +271,7 @@ impl App {
                 self.sys.graphics_queue,
                 &QueueSubmitDesc {
                     wait_semaphore: Some(&[self.sys.get_image_available_semaphore()]),
-                    wait_stage: Some(&[PipelineStage::ColorAttachmentOutput]),
+                    wait_stage: Some(&[PipelineStageFlag::COLOR_ATTACHMENT_OUTPUT]),
                     command_buffer: &[cb],
                     finish_semaphore: Some(&[self.sys.get_render_finished_semaphore()]),
                     fence: Some(self.sys.get_in_flight_fence()),

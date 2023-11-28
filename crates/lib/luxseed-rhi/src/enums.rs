@@ -238,27 +238,6 @@ pub enum CommandBufferLevel {
     Secondary,
 }
 
-#[derive(Clone, Copy, Hash)]
-pub enum PipelineStage {
-    TopOfPipe,
-    DrawIndirect,
-    VertexInput,
-    VertexShader,
-    TessellationControlShader,
-    TessellationEvaluationShader,
-    GeometryShader,
-    FragmentShader,
-    EarlyFragmentTests,
-    LateFragmentTests,
-    ColorAttachmentOutput,
-    ComputeShader,
-    Transfer,
-    BottomOfPipe,
-    Host,
-    AllGraphics,
-    AllCommands,
-}
-
 #[derive(Clone, Copy)]
 pub enum VertexInputRate {
     Vertex,

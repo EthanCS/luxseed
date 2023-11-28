@@ -354,7 +354,7 @@ pub struct FramebufferCreateDesc<'a> {
 
 pub struct QueueSubmitDesc<'a> {
     pub wait_semaphore: Option<&'a [Handle<Semaphore>]>,
-    pub wait_stage: Option<&'a [PipelineStage]>,
+    pub wait_stage: Option<&'a [PipelineStageFlag]>,
     pub command_buffer: &'a [Handle<CommandBuffer>],
     pub finish_semaphore: Option<&'a [Handle<Semaphore>]>,
     pub fence: Option<Handle<Fence>>,
