@@ -1,7 +1,7 @@
 extern crate shaderc;
 
 use anyhow::{self, Ok, Result};
-use luxseed_rhi::{define::*, enums::*, pool::Handle, rhi_create, RHI};
+use luxseed_rhi::{define::*, enums::*, flag::*, pool::Handle, rhi_create, RHI};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::window::Window;
 

@@ -6,6 +6,7 @@ use crate::{
         StencilOpState,
     },
     enums::*,
+    flag::*,
 };
 
 use super::render_pass::VulkanRenderPassOutput;

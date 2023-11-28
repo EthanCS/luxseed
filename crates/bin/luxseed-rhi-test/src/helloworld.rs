@@ -1,6 +1,6 @@
 use anyhow::Ok;
 use glam::{vec3, Mat4};
-use luxseed_rhi::{define::*, enums::*, pool::Handle};
+use luxseed_rhi::{define::*, enums::*, flag::*, pool::Handle};
 use std::fs;
 use winit::window::Window;
 

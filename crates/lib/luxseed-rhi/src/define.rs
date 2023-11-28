@@ -1,6 +1,6 @@
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
-use crate::{enums::*, pool::Handle, MAX_RENDER_TARGETS};
+use crate::{enums::*, flag::*, pool::Handle, MAX_RENDER_TARGETS};
 
 #[derive(Clone)]
 pub struct AdapterInfo {
