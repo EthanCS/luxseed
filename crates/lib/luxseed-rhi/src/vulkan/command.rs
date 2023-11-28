@@ -9,6 +9,7 @@ use crate::{
         MemoryBarrier, RenderPass,
     },
     enums::*,
+    flag::PipelineStageFlags,
     impl_handle,
     pool::{Handle, Handled, Pool},
     MAX_RENDER_TARGETS,
@@ -359,24 +360,33 @@ impl VulkanCommandBuffer {
     pub fn pipeline_barrier(
         &self,
         device: &VulkanDevice,
-        _barriers: &[MemoryBarrier],
-        _buffer_barriers: &[BufferMemoryBarrier],
+        src_stage: PipelineStageFlags,
+        dst_stage: PipelineStageFlags,
         image_barriers: &[ImageMemoryBarrier],
         p_image: &Pool<VulkanImage>,
     ) -> anyhow::Result<()> {
-        let mut memory_barriers = SmallVec::<[vk::MemoryBarrier; 4]>::new();
-        let mut buffer_memory_barriers = SmallVec::<[vk::BufferMemoryBarrier; 4]>::new();
-
         let mut image_memory_barriers = SmallVec::<[vk::ImageMemoryBarrier; 4]>::new();
         for barrier in image_barriers {
             image_memory_barriers.push(
                 vk::ImageMemoryBarrier::builder()
                     .old_layout(barrier.old_layout.into())
                     .new_layout(barrier.new_layout.into())
-                    .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-                    .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                    .src_queue_family_index(
+                        barrier.src_queue_family_index.unwrap_or(vk::QUEUE_FAMILY_IGNORED),
+                    )
+                    .dst_queue_family_index(
+                        barrier.dst_queue_family_index.unwrap_or(vk::QUEUE_FAMILY_IGNORED),
+                    )
                     .image(p_image.get(barrier.image).context("Image not found")?.raw)
-                    .subresource_range(barrier.subresource_range.into())
+                    .subresource_range(
+                        vk::ImageSubresourceRange::builder()
+                            .aspect_mask(barrier.aspect_mask.into())
+                            .base_mip_level(barrier.base_mip_level)
+                            .level_count(barrier.level_count)
+                            .base_array_layer(barrier.base_array_layer)
+                            .layer_count(barrier.layer_count)
+                            .build(),
+                    )
                     .src_access_mask(vk::AccessFlags::empty())
                     .dst_access_mask(vk::AccessFlags::empty())
                     .build(),
@@ -385,11 +395,11 @@ impl VulkanCommandBuffer {
         unsafe {
             device.raw().cmd_pipeline_barrier(
                 self.raw,
-                vk::PipelineStageFlags::ALL_COMMANDS,
-                vk::PipelineStageFlags::ALL_COMMANDS,
+                src_stage.into(),
+                dst_stage.into(),
                 vk::DependencyFlags::empty(),
-                &memory_barriers,
-                &buffer_memory_barriers,
+                &[],
+                &[],
                 &image_memory_barriers,
             );
         }

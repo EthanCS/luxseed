@@ -8,6 +8,7 @@ use anyhow::Result;
 
 use define::*;
 use enums::*;
+use flag::*;
 use pool::Handle;
 use vulkan::VulkanRHI;
 
@@ -251,7 +252,13 @@ pub trait RHI {
         width: u32,
         height: u32,
     ) -> Result<()>;
-
+    fn cmd_pipeline_barrier(
+        &self,
+        cb: Handle<CommandBuffer>,
+        src_stage_mask: PipelineStageFlags,
+        dst_stage_mask: PipelineStageFlags,
+        image_memory_barriers: &[ImageMemoryBarrier],
+    ) -> Result<()>;
     fn cmd_bind_descriptor_sets(
         &self,
         cb: Handle<CommandBuffer>,

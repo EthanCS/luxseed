@@ -21,8 +21,9 @@ use std::ffi::CString;
 use crate::define::*;
 use crate::define_resource_pool;
 use crate::enums::*;
+use crate::flag::*;
 use crate::pool::*;
-use crate::{pool::Pool, RHICreation, RHI};
+use crate::{RHICreation, RHI};
 
 use self::buffer::*;
 use self::command::*;
@@ -824,6 +825,25 @@ impl RHI for VulkanRHI {
         let dst = self.res_pool.buffer.get(dst).context("Destination buffer not found.")?;
         let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
         cb.copy_buffer(device, src, dst, regions);
+        Ok(())
+    }
+
+    fn cmd_pipeline_barrier(
+        &self,
+        cb: Handle<CommandBuffer>,
+        src_stage_mask: PipelineStageFlags,
+        dst_stage_mask: PipelineStageFlags,
+        image_memory_barriers: &[ImageMemoryBarrier],
+    ) -> Result<()> {
+        let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
+        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
+        cb.pipeline_barrier(
+            device,
+            src_stage_mask,
+            dst_stage_mask,
+            image_memory_barriers,
+            &self.res_pool.texture,
+        )?;
         Ok(())
     }
 

@@ -354,7 +354,7 @@ pub struct FramebufferCreateDesc<'a> {
 
 pub struct QueueSubmitDesc<'a> {
     pub wait_semaphore: Option<&'a [Handle<Semaphore>]>,
-    pub wait_stage: Option<&'a [PipelineStageFlag]>,
+    pub wait_stage: Option<&'a [PipelineStageFlags]>,
     pub command_buffer: &'a [Handle<CommandBuffer>],
     pub finish_semaphore: Option<&'a [Handle<Semaphore>]>,
     pub fence: Option<Handle<Fence>>,
@@ -452,15 +452,6 @@ pub struct DescriptorSetCopyDesc {
     pub descriptor_count: u32,
 }
 
-#[derive(Clone, Copy)]
-pub struct ImageSubresourceRange {
-    pub aspect_mask: ImageAspectFlag,
-    pub base_mip_level: u8,
-    pub level_count: u8,
-    pub base_array_layer: u8,
-    pub layer_count: u8,
-}
-
 pub struct MemoryBarrier {
     pub src_queue_family_index: u32,
     pub dst_queue_family_index: u32,
@@ -478,11 +469,15 @@ pub struct BufferMemoryBarrier {
 
 pub struct ImageMemoryBarrier {
     pub image: Handle<Image>,
-    pub subresource_range: ImageSubresourceRange,
+    pub aspect_mask: ImageAspectFlag,
+    pub base_mip_level: u32,
+    pub level_count: u32,
+    pub base_array_layer: u32,
+    pub layer_count: u32,
     pub old_layout: ImageLayout,
     pub new_layout: ImageLayout,
-    pub src_queue_family_index: u32,
-    pub dst_queue_family_index: u32,
+    pub src_queue_family_index: Option<u32>,
+    pub dst_queue_family_index: Option<u32>,
 }
 
 macro_rules! define_rhi_resources {

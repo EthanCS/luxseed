@@ -1,13 +1,6 @@
 use ash::vk;
 
-use crate::{
-    define::{
-        BufferCopyRegion, ClearColor, ClearDepthStencil, ImageSubresourceRange, RenderPassOutput,
-        StencilOpState,
-    },
-    enums::*,
-    flag::*,
-};
+use crate::{define::*, enums::*, flag::*};
 
 use super::render_pass::VulkanRenderPassOutput;
 
@@ -389,58 +382,58 @@ impl From<TextureUsageFlag> for vk::ImageUsageFlags {
     }
 }
 
-impl From<PipelineStageFlag> for vk::PipelineStageFlags {
-    fn from(value: PipelineStageFlag) -> Self {
+impl From<PipelineStageFlags> for vk::PipelineStageFlags {
+    fn from(value: PipelineStageFlags) -> Self {
         let mut ret = vk::PipelineStageFlags::empty();
-        if value.contains(PipelineStageFlag::TOP_OF_PIPE) {
+        if value.contains(PipelineStageFlags::TOP_OF_PIPE) {
             ret |= vk::PipelineStageFlags::TOP_OF_PIPE;
         }
-        if value.contains(PipelineStageFlag::DRAW_INDIRECT) {
+        if value.contains(PipelineStageFlags::DRAW_INDIRECT) {
             ret |= vk::PipelineStageFlags::DRAW_INDIRECT;
         }
-        if value.contains(PipelineStageFlag::VERTEX_INPUT) {
+        if value.contains(PipelineStageFlags::VERTEX_INPUT) {
             ret |= vk::PipelineStageFlags::VERTEX_INPUT;
         }
-        if value.contains(PipelineStageFlag::VERTEX_SHADER) {
+        if value.contains(PipelineStageFlags::VERTEX_SHADER) {
             ret |= vk::PipelineStageFlags::VERTEX_SHADER;
         }
-        if value.contains(PipelineStageFlag::TESSELLATION_CONTROL_SHADER) {
+        if value.contains(PipelineStageFlags::TESSELLATION_CONTROL_SHADER) {
             ret |= vk::PipelineStageFlags::TESSELLATION_CONTROL_SHADER;
         }
-        if value.contains(PipelineStageFlag::TESSELLATION_EVALUATION_SHADER) {
+        if value.contains(PipelineStageFlags::TESSELLATION_EVALUATION_SHADER) {
             ret |= vk::PipelineStageFlags::TESSELLATION_EVALUATION_SHADER;
         }
-        if value.contains(PipelineStageFlag::GEOMETRY_SHADER) {
+        if value.contains(PipelineStageFlags::GEOMETRY_SHADER) {
             ret |= vk::PipelineStageFlags::GEOMETRY_SHADER;
         }
-        if value.contains(PipelineStageFlag::FRAGMENT_SHADER) {
+        if value.contains(PipelineStageFlags::FRAGMENT_SHADER) {
             ret |= vk::PipelineStageFlags::FRAGMENT_SHADER;
         }
-        if value.contains(PipelineStageFlag::EARLY_FRAGMENT_TESTS) {
+        if value.contains(PipelineStageFlags::EARLY_FRAGMENT_TESTS) {
             ret |= vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS;
         }
-        if value.contains(PipelineStageFlag::LATE_FRAGMENT_TESTS) {
+        if value.contains(PipelineStageFlags::LATE_FRAGMENT_TESTS) {
             ret |= vk::PipelineStageFlags::LATE_FRAGMENT_TESTS;
         }
-        if value.contains(PipelineStageFlag::COLOR_ATTACHMENT_OUTPUT) {
+        if value.contains(PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT) {
             ret |= vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT;
         }
-        if value.contains(PipelineStageFlag::COMPUTE_SHADER) {
+        if value.contains(PipelineStageFlags::COMPUTE_SHADER) {
             ret |= vk::PipelineStageFlags::COMPUTE_SHADER;
         }
-        if value.contains(PipelineStageFlag::TRANSFER) {
+        if value.contains(PipelineStageFlags::TRANSFER) {
             ret |= vk::PipelineStageFlags::TRANSFER;
         }
-        if value.contains(PipelineStageFlag::BOTTOM_OF_PIPE) {
+        if value.contains(PipelineStageFlags::BOTTOM_OF_PIPE) {
             ret |= vk::PipelineStageFlags::BOTTOM_OF_PIPE;
         }
-        if value.contains(PipelineStageFlag::HOST) {
+        if value.contains(PipelineStageFlags::HOST) {
             ret |= vk::PipelineStageFlags::HOST;
         }
-        if value.contains(PipelineStageFlag::ALL_GRAPHICS) {
+        if value.contains(PipelineStageFlags::ALL_GRAPHICS) {
             ret |= vk::PipelineStageFlags::ALL_GRAPHICS;
         }
-        if value.contains(PipelineStageFlag::ALL_COMMANDS) {
+        if value.contains(PipelineStageFlags::ALL_COMMANDS) {
             ret |= vk::PipelineStageFlags::ALL_COMMANDS;
         }
         ret
@@ -519,18 +512,6 @@ impl From<ImageAspectFlag> for vk::ImageAspectFlags {
             ImageAspectFlag::Color => vk::ImageAspectFlags::COLOR,
             ImageAspectFlag::Depth => vk::ImageAspectFlags::DEPTH,
             ImageAspectFlag::Stencil => vk::ImageAspectFlags::STENCIL,
-        }
-    }
-}
-
-impl From<ImageSubresourceRange> for vk::ImageSubresourceRange {
-    fn from(value: ImageSubresourceRange) -> Self {
-        vk::ImageSubresourceRange {
-            aspect_mask: value.aspect_mask.into(),
-            base_mip_level: value.base_mip_level.into(),
-            level_count: value.level_count.into(),
-            base_array_layer: value.base_array_layer.into(),
-            layer_count: value.layer_count.into(),
         }
     }
 }

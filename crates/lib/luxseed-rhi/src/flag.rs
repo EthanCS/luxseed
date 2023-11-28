@@ -31,7 +31,7 @@ bitflags! {
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct PipelineStageFlag : u32 {
+    pub struct PipelineStageFlags : u32 {
         const TOP_OF_PIPE = 0b1;
         const DRAW_INDIRECT = 0b10;
         const VERTEX_INPUT = 0b100;
