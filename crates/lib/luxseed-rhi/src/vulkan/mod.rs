@@ -44,8 +44,9 @@ define_resource_pool!(
     (VulkanQueue, queue, 4),
     (VulkanSurface, surface, 1),
     (VulkanSwapchain, swapchain, 1),
-    (VulkanImage, texture, 128),
-    (VulkanImageView, texture_view, 128),
+    (VulkanImage, image, 128),
+    (VulkanImageView, image_view, 128),
+    (VulkanSampler, sampler, 32),
     (VulkanShader, shader_module, 32),
     (VulkanPipelineLayout, pipeline_layout, 32),
     (VulkanRasterPipeline, raster_pipeline, 32),
@@ -252,7 +253,7 @@ impl RHI for VulkanRHI {
         let surface: &VulkanSurface = self.res_pool.surface.get(desc.surface).unwrap();
         let queue: &VulkanQueue = self.res_pool.queue.get(device.graphics_queue.unwrap()).unwrap();
         let item = self.res_pool.swapchain.malloc();
-        item.1.init(&self.instance, device, surface, queue, desc, &mut self.res_pool.texture)?;
+        item.1.init(&self.instance, device, surface, queue, desc, &mut self.res_pool.image)?;
         Ok(item.0)
     }
 
@@ -264,17 +265,17 @@ impl RHI for VulkanRHI {
             {
                 for handle in swapchain.back_buffers.iter() {
                     let texture =
-                        self.res_pool.texture.get_mut(*handle).context("Image not found")?;
+                        self.res_pool.image.get_mut(*handle).context("Image not found")?;
                     for (_, handle) in texture.views.drain() {
                         let view = self
                             .res_pool
-                            .texture_view
+                            .image_view
                             .get_mut(handle)
                             .context("Image view not found.")?;
                         view.destroy(device);
-                        self.res_pool.texture_view.free(handle);
+                        self.res_pool.image_view.free(handle);
                     }
-                    self.res_pool.texture.free(*handle);
+                    self.res_pool.image.free(*handle);
                 }
             }
             swapchain.destroy();
@@ -283,7 +284,7 @@ impl RHI for VulkanRHI {
         Ok(())
     }
 
-    fn acquire_next_image(
+    fn acquire_swapchain_next_image(
         &self,
         handle: Handle<Swapchain>,
         timeout: u64,
@@ -404,58 +405,79 @@ impl RHI for VulkanRHI {
         Ok(())
     }
 
-    fn create_texture(
+    fn create_image(
         &mut self,
         device: Handle<Device>,
         desc: &ImageCreateDesc,
     ) -> Result<Handle<Image>> {
         let device = self.res_pool.device.get(device).context("Device not found.")?;
-        let item = self.res_pool.texture.malloc();
+        let item = self.res_pool.image.malloc();
         item.1.init(device, desc)?;
         Ok(item.0)
     }
 
-    fn destroy_texture(&mut self, handle: Handle<Image>) -> Result<()> {
-        if let Some(v) = self.res_pool.texture.get_mut(handle) {
+    fn destroy_image(&mut self, handle: Handle<Image>) -> Result<()> {
+        if let Some(v) = self.res_pool.image.get_mut(handle) {
             let device =
                 self.res_pool.device.get(v.device.unwrap()).context("Device not found.")?;
             // Destory related views
             {
                 for (_, handle) in v.views.drain() {
-                    let v = self.res_pool.texture_view.get_mut(handle).unwrap();
+                    let v = self.res_pool.image_view.get_mut(handle).unwrap();
                     v.destroy(device);
-                    self.res_pool.texture_view.free(handle);
+                    self.res_pool.image_view.free(handle);
                 }
             }
             v.destroy(device);
-            self.res_pool.texture.free(handle);
+            self.res_pool.image.free(handle);
         }
         Ok(())
     }
 
-    fn create_texture_view(
+    fn create_image_view(
         &mut self,
         device: Handle<Device>,
         texture: Handle<Image>,
         desc: &TextureViewCreateDesc,
-    ) -> Result<Handle<TextureView>> {
+    ) -> Result<Handle<ImageView>> {
         let device = self.res_pool.device.get(device).context("Device not found.")?;
-        let texture = self.res_pool.texture.get_mut(texture).context("Texture not found.")?;
+        let texture = self.res_pool.image.get_mut(texture).context("Texture not found.")?;
         let desc = VulkanImageViewDesc::from_create_desc(desc, texture);
-        texture.get_or_create_view(device, &desc, &mut self.res_pool.texture_view)
+        texture.get_or_create_view(device, &desc, &mut self.res_pool.image_view)
     }
 
-    fn destroy_texture_view(&mut self, handle: Handle<TextureView>) -> Result<()> {
-        if let Some(v) = self.res_pool.texture_view.get_mut(handle) {
+    fn destroy_image_view(&mut self, handle: Handle<ImageView>) -> Result<()> {
+        if let Some(v) = self.res_pool.image_view.get_mut(handle) {
             let device =
                 self.res_pool.device.get(v.device.unwrap()).context("Device not found.")?;
             // Remove from texture
             {
-                let texture = self.res_pool.texture.get_mut(v.texture.unwrap()).unwrap();
+                let texture = self.res_pool.image.get_mut(v.texture.unwrap()).unwrap();
                 texture.views.remove(&v.desc);
             }
             v.destroy(device);
-            self.res_pool.texture_view.free(handle);
+            self.res_pool.image_view.free(handle);
+        }
+        Ok(())
+    }
+
+    fn create_sampler(
+        &mut self,
+        device: Handle<Device>,
+        desc: &SamplerCreateDesc,
+    ) -> Result<Handle<Sampler>> {
+        let device = self.res_pool.device.get(device).context("Device not found.")?;
+        let item = self.res_pool.sampler.malloc();
+        item.1.init(device, desc)?;
+        Ok(item.0)
+    }
+
+    fn destroy_sampler(&mut self, handle: Handle<Sampler>) -> Result<()> {
+        if let Some(s) = self.res_pool.sampler.get_mut(handle) {
+            let device =
+                self.res_pool.device.get(s.device.unwrap()).context("Device not found.")?;
+            s.destroy(device);
+            self.res_pool.sampler.free(handle);
         }
         Ok(())
     }
@@ -591,8 +613,8 @@ impl RHI for VulkanRHI {
         let desc = VulkanFramebufferDesc::from_create_desc(
             rp.raw,
             &desc,
-            &self.res_pool.texture,
-            &self.res_pool.texture_view,
+            &self.res_pool.image,
+            &self.res_pool.image_view,
         )?;
         let fb = d.get_or_create_framebuffer(&desc)?;
         item.1.init(fb, d, desc);
@@ -842,7 +864,7 @@ impl RHI for VulkanRHI {
             src_stage_mask,
             dst_stage_mask,
             image_memory_barriers,
-            &self.res_pool.texture,
+            &self.res_pool.image,
         )?;
         Ok(())
     }
@@ -883,7 +905,7 @@ impl RHI for VulkanRHI {
         Ok(())
     }
 
-    fn cmd_copy_buffer_to_texture(
+    fn cmd_copy_buffer_to_image(
         &self,
         cb: Handle<CommandBuffer>,
         src: Handle<Buffer>,
@@ -893,7 +915,7 @@ impl RHI for VulkanRHI {
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
         let src = self.res_pool.buffer.get(src).context("Source buffer not found.")?;
-        let dst = self.res_pool.texture.get(dst).context("Destination texture not found.")?;
+        let dst = self.res_pool.image.get(dst).context("Destination texture not found.")?;
         let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
         cb.copy_buffer_to_image(device, src, dst, dst_image_layout, regions);
         Ok(())

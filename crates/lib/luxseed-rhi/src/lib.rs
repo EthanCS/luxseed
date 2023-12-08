@@ -84,7 +84,7 @@ pub trait RHI {
     /// # Returns
     ///
     /// A tuple containing the index of the acquired image (`usize::MAX` means swapchain is out of date) and a boolean indicating whether the swapchain is suboptimal.
-    fn acquire_next_image(
+    fn acquire_swapchain_next_image(
         &self,
         handle: Handle<Swapchain>,
         timeout: u64,
@@ -125,20 +125,28 @@ pub trait RHI {
         copies: &[DescriptorSetCopyDesc],
     ) -> Result<()>;
 
-    // Texture / Texture View
-    fn create_texture(
+    // Image / Image View
+    fn create_image(
         &mut self,
         device: Handle<Device>,
         desc: &ImageCreateDesc,
     ) -> Result<Handle<Image>>;
-    fn destroy_texture(&mut self, handle: Handle<Image>) -> Result<()>;
-    fn create_texture_view(
+    fn destroy_image(&mut self, handle: Handle<Image>) -> Result<()>;
+    fn create_image_view(
         &mut self,
         device: Handle<Device>,
         texture: Handle<Image>,
         desc: &TextureViewCreateDesc,
-    ) -> Result<Handle<TextureView>>;
-    fn destroy_texture_view(&mut self, handle: Handle<TextureView>) -> Result<()>;
+    ) -> Result<Handle<ImageView>>;
+    fn destroy_image_view(&mut self, handle: Handle<ImageView>) -> Result<()>;
+
+    fn create_sampler(
+        &mut self,
+        device: Handle<Device>,
+        desc: &SamplerCreateDesc,
+    ) -> Result<Handle<Sampler>>;
+
+    fn destroy_sampler(&mut self, handle: Handle<Sampler>) -> Result<()>;
 
     // Shader
     fn create_shader_module(
@@ -290,7 +298,7 @@ pub trait RHI {
         dst: Handle<Buffer>,
         regions: &[BufferCopyRegion],
     ) -> Result<()>;
-    fn cmd_copy_buffer_to_texture(
+    fn cmd_copy_buffer_to_image(
         &self,
         cb: Handle<CommandBuffer>,
         src: Handle<Buffer>,

@@ -305,3 +305,24 @@ pub enum AccessFlag {
     MemoryRead,
     MemoryWrite,
 }
+
+#[derive(Clone, Copy)]
+pub enum SamplerAddressMode {
+    Repeat,
+    MirroredRepeat,
+    ClampToEdge,
+    ClampToBorder,
+    MirrorClampToEdge,
+}
+
+#[derive(Clone, Copy)]
+pub enum SamplerMipmapMode {
+    Nearest,
+    Linear,
+}
+
+#[derive(Clone, Copy)]
+pub enum FilterType {
+    Nearest,
+    Linear,
+}

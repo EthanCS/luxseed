@@ -515,3 +515,33 @@ impl From<ImageAspectFlag> for vk::ImageAspectFlags {
         }
     }
 }
+
+impl From<SamplerAddressMode> for vk::SamplerAddressMode {
+    fn from(value: SamplerAddressMode) -> Self {
+        match value {
+            SamplerAddressMode::Repeat => vk::SamplerAddressMode::REPEAT,
+            SamplerAddressMode::MirroredRepeat => vk::SamplerAddressMode::MIRRORED_REPEAT,
+            SamplerAddressMode::ClampToEdge => vk::SamplerAddressMode::CLAMP_TO_EDGE,
+            SamplerAddressMode::ClampToBorder => vk::SamplerAddressMode::CLAMP_TO_BORDER,
+            SamplerAddressMode::MirrorClampToEdge => vk::SamplerAddressMode::MIRROR_CLAMP_TO_EDGE,
+        }
+    }
+}
+
+impl From<SamplerMipmapMode> for vk::SamplerMipmapMode {
+    fn from(value: SamplerMipmapMode) -> Self {
+        match value {
+            SamplerMipmapMode::Nearest => vk::SamplerMipmapMode::NEAREST,
+            SamplerMipmapMode::Linear => vk::SamplerMipmapMode::LINEAR,
+        }
+    }
+}
+
+impl From<FilterType> for vk::Filter {
+    fn from(value: FilterType) -> Self {
+        match value {
+            FilterType::Nearest => vk::Filter::NEAREST,
+            FilterType::Linear => vk::Filter::LINEAR,
+        }
+    }
+}

@@ -2,7 +2,7 @@ use ash::vk;
 use std::collections::HashMap;
 
 use crate::{
-    define::{Device, Image, ImageCreateDesc, TextureView, TextureViewCreateDesc},
+    define::*,
     impl_handle,
     pool::{Handle, Handled, Pool},
 };
@@ -27,7 +27,7 @@ pub struct VulkanImage {
     pub raw: vk::Image,
     pub device: Option<Handle<Device>>,
     pub desc: VulkanImageDesc,
-    pub views: HashMap<VulkanImageViewDesc, Handle<TextureView>>,
+    pub views: HashMap<VulkanImageViewDesc, Handle<ImageView>>,
 }
 impl_handle!(VulkanImage, Image, handle);
 
@@ -71,7 +71,7 @@ impl VulkanImage {
         device: &VulkanDevice,
         desc: &VulkanImageViewDesc,
         p_image_view: &mut Pool<VulkanImageView>,
-    ) -> anyhow::Result<Handle<TextureView>> {
+    ) -> anyhow::Result<Handle<ImageView>> {
         if let Some(handle) = self.views.get(desc) {
             return Ok(*handle);
         }
@@ -128,13 +128,13 @@ impl VulkanImageViewDesc {
 
 #[derive(Default)]
 pub struct VulkanImageView {
-    pub handle: Option<Handle<TextureView>>,
+    pub handle: Option<Handle<ImageView>>,
     pub raw: vk::ImageView,
     pub device: Option<Handle<Device>>,
     pub texture: Option<Handle<Image>>,
     pub desc: VulkanImageViewDesc,
 }
-impl_handle!(VulkanImageView, TextureView, handle);
+impl_handle!(VulkanImageView, ImageView, handle);
 
 impl VulkanImageView {
     pub fn init(
@@ -179,5 +179,53 @@ impl VulkanImageView {
         self.texture = None;
         self.desc = Default::default();
         self.raw = vk::ImageView::null();
+    }
+}
+
+#[derive(Default)]
+pub struct VulkanSampler {
+    pub handle: Option<Handle<Sampler>>,
+    pub raw: vk::Sampler,
+    pub device: Option<Handle<Device>>,
+}
+impl_handle!(VulkanSampler, Sampler, handle);
+
+impl VulkanSampler {
+    pub fn init(&mut self, device: &VulkanDevice, desc: &SamplerCreateDesc) -> anyhow::Result<()> {
+        let mut compare_op = vk::CompareOp::ALWAYS;
+        if let Some(op) = desc.compare_op {
+            compare_op = op.into();
+        }
+
+        let device_max_anisotropy =
+            device.adapter.as_ref().unwrap().properties.limits.max_sampler_anisotropy;
+        let mut max_anisotropy = desc.max_anisotropy.unwrap_or(1.0);
+        max_anisotropy = max_anisotropy.min(device_max_anisotropy);
+
+        let sampler_info = vk::SamplerCreateInfo::builder()
+            .mag_filter(desc.mag_filter.into())
+            .min_filter(desc.min_filter.into())
+            .mipmap_mode(desc.mipmap_mode.into())
+            .min_lod(0.0)
+            .max_lod(0.0)
+            .mip_lod_bias(desc.mip_lod_bias)
+            .address_mode_u(desc.address_mode_u.into())
+            .address_mode_v(desc.address_mode_v.into())
+            .address_mode_w(desc.address_mode_w.into())
+            .anisotropy_enable(desc.max_anisotropy.is_some())
+            .max_anisotropy(max_anisotropy)
+            .compare_enable(desc.compare_op.is_some())
+            .compare_op(compare_op)
+            .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
+            .unnormalized_coordinates(false);
+        self.raw = unsafe { device.raw().create_sampler(&sampler_info, None)? };
+        Ok(())
+    }
+
+    pub fn destroy(&mut self, device: &VulkanDevice) {
+        unsafe {
+            device.raw().destroy_sampler(self.raw, None);
+        }
+        self.raw = vk::Sampler::null();
     }
 }

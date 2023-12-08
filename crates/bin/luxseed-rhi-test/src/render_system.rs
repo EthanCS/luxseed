@@ -76,7 +76,7 @@ impl RenderSystem {
             render_finisheds.push(rhi.create_semaphore(device)?);
 
             let back_buffer = rhi.get_swapchain_back_buffer(swapchain, i as usize)?;
-            let view = rhi.create_texture_view(
+            let view = rhi.create_image_view(
                 device,
                 back_buffer,
                 &TextureViewCreateDesc { ..TextureViewCreateDesc::default() },
@@ -119,7 +119,7 @@ impl RenderSystem {
     pub fn begin_frame(&mut self, width: u32, height: u32) -> Result<bool> {
         self.rhi.wait_for_fences(&[self.get_in_flight_fence()], true, u64::MAX)?;
 
-        let image_index = self.rhi.acquire_next_image(
+        let image_index = self.rhi.acquire_swapchain_next_image(
             self.swapchain,
             u64::MAX,
             self.get_image_available_semaphore(),
@@ -293,7 +293,7 @@ impl RenderSystem {
         self.swapchain_framebuffers.clear();
         for i in 0..self.max_frames_in_flight {
             let back_buffer = self.rhi.get_swapchain_back_buffer(self.swapchain, i as usize)?;
-            let view = self.rhi.create_texture_view(
+            let view = self.rhi.create_image_view(
                 self.device,
                 back_buffer,
                 &TextureViewCreateDesc { ..TextureViewCreateDesc::default() },

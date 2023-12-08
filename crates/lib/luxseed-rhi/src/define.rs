@@ -223,7 +223,7 @@ pub struct RasterPipelineCreateDesc<'a> {
 
 #[derive(Clone, Copy)]
 pub struct ColorAttachment {
-    pub view: Handle<TextureView>,
+    pub view: Handle<ImageView>,
     pub clear_value: Option<[f32; 4]>,
     pub load_op: RenderTargetLoadAction,
     pub store_op: RenderTargetStoreAction,
@@ -231,7 +231,7 @@ pub struct ColorAttachment {
 
 #[derive(Clone, Copy)]
 pub struct DepthStencilAttachment {
-    pub view: Handle<TextureView>,
+    pub view: Handle<ImageView>,
     pub depth_clear_value: Option<f32>,
     pub depth_load_op: RenderTargetLoadAction,
     pub depth_store_op: RenderTargetStoreAction,
@@ -348,8 +348,8 @@ impl RenderPassOutputBuilder {
 #[derive(Clone, Copy)]
 pub struct FramebufferCreateDesc<'a> {
     pub render_pass: Handle<RenderPass>,
-    pub color_views: &'a [Handle<TextureView>],
-    pub depth_stencil_view: Option<Handle<TextureView>>,
+    pub color_views: &'a [Handle<ImageView>],
+    pub depth_stencil_view: Option<Handle<ImageView>>,
 }
 
 pub struct QueueSubmitDesc<'a> {
@@ -480,6 +480,17 @@ pub struct ImageMemoryBarrier {
     pub dst_queue_family_index: Option<u32>,
 }
 
+pub struct SamplerCreateDesc {
+    pub min_filter: FilterType,
+    pub mag_filter: FilterType,
+    pub mipmap_mode: SamplerMipmapMode,
+    pub address_mode_u: SamplerAddressMode,
+    pub address_mode_v: SamplerAddressMode,
+    pub address_mode_w: SamplerAddressMode,
+    pub mip_lod_bias: f32,
+    pub compare_op: Option<CompareOp>,
+    pub max_anisotropy: Option<f32>,
+}
 
 #[derive(Default, Clone, Copy)]
 pub struct CommandBufferBeginDesc {
@@ -499,7 +510,8 @@ define_rhi_resources!(
     Queue,
     Swapchain,
     Image,
-    TextureView,
+    ImageView,
+    Sampler,
     Shader,
     PipelineLayout,
     RasterPipeline,
