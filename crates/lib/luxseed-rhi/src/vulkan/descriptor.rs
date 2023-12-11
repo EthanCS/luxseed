@@ -143,8 +143,10 @@ impl VulkanDevice {
         p_buffer: &Pool<VulkanBuffer>,
         p_descriptor_sets: &Pool<VulkanDescriptorSet>,
     ) -> Result<()> {
+        // For writes
         let mut dsw = SmallVec::<[vk::WriteDescriptorSet; 8]>::new();
-        let mut buffer_infos = SmallVec::<[vk::DescriptorBufferInfo; 8]>::new();
+        let mut write_buffer_infos = SmallVec::<[vk::DescriptorBufferInfo; 8]>::new();
+        let mut write_image_infos = SmallVec::<[vk::DescriptorImageInfo; 8]>::new();
 
         for w in writes.iter() {
             let mut dst_set = vk::WriteDescriptorSet::builder()
@@ -161,10 +163,21 @@ impl VulkanDevice {
                             .offset(b.offset)
                             .range(b.range)
                             .build();
-                        buffer_infos.push(buffer_info);
+                        write_buffer_infos.push(buffer_info);
                     }
-                    dst_set = dst_set.buffer_info(&buffer_infos);
+                    dst_set = dst_set.buffer_info(&write_buffer_infos);
                 }
+                // DescriptorType::CombinedImageSampler => {
+                //     for i in w.image_infos.iter() {
+                //         let image_info = vk::DescriptorImageInfo::builder()
+                //             .image_layout(i.image_layout)
+                //             .image_view(i.image_view)
+                //             .sampler(i.sampler)
+                //             .build();
+                //         write_image_infos.push(image_info);
+                //     }
+                //     dst_set = dst_set.image_info(&write_image_infos);
+                // }
                 _ => {
                     return Err(anyhow::anyhow!("Unsupported descriptor type"));
                 }
@@ -172,8 +185,12 @@ impl VulkanDevice {
 
             dsw.push(dst_set.build());
         }
+
+        // For copies
+        let dsc = SmallVec::<[vk::CopyDescriptorSet; 8]>::new();
+
         unsafe {
-            self.raw().update_descriptor_sets(&dsw, &[]);
+            self.raw().update_descriptor_sets(&dsw, &dsc);
         }
         Ok(())
     }

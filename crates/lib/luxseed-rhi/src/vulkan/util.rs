@@ -93,17 +93,6 @@ impl From<TextureComponentSwizzle> for vk::ComponentSwizzle {
     }
 }
 
-impl From<ShaderStage> for vk::ShaderStageFlags {
-    fn from(item: ShaderStage) -> Self {
-        match item {
-            ShaderStage::None => vk::ShaderStageFlags::empty(),
-            ShaderStage::Vertex => vk::ShaderStageFlags::VERTEX,
-            ShaderStage::Fragment => vk::ShaderStageFlags::FRAGMENT,
-            ShaderStage::Compute => vk::ShaderStageFlags::COMPUTE,
-        }
-    }
-}
-
 impl From<BlendFactor> for vk::BlendFactor {
     fn from(item: BlendFactor) -> Self {
         match item {
@@ -317,65 +306,65 @@ impl From<VertexInputRate> for vk::VertexInputRate {
     }
 }
 
-impl From<BufferUsageFlag> for vk::BufferUsageFlags {
-    fn from(value: BufferUsageFlag) -> Self {
+impl From<BufferUsageFlags> for vk::BufferUsageFlags {
+    fn from(value: BufferUsageFlags) -> Self {
         let mut ret = vk::BufferUsageFlags::empty();
-        if value.contains(BufferUsageFlag::TRANSFER_SRC) {
+        if value.contains(BufferUsageFlags::TRANSFER_SRC) {
             ret |= vk::BufferUsageFlags::TRANSFER_SRC;
         }
-        if value.contains(BufferUsageFlag::TRANSFER_DST) {
+        if value.contains(BufferUsageFlags::TRANSFER_DST) {
             ret |= vk::BufferUsageFlags::TRANSFER_DST;
         }
-        if value.contains(BufferUsageFlag::UNIFORM_TEXEL_BUFFER) {
+        if value.contains(BufferUsageFlags::UNIFORM_TEXEL_BUFFER) {
             ret |= vk::BufferUsageFlags::UNIFORM_TEXEL_BUFFER;
         }
-        if value.contains(BufferUsageFlag::STORAGE_TEXEL_BUFFER) {
+        if value.contains(BufferUsageFlags::STORAGE_TEXEL_BUFFER) {
             ret |= vk::BufferUsageFlags::STORAGE_TEXEL_BUFFER;
         }
-        if value.contains(BufferUsageFlag::UNIFORM_BUFFER) {
+        if value.contains(BufferUsageFlags::UNIFORM_BUFFER) {
             ret |= vk::BufferUsageFlags::UNIFORM_BUFFER;
         }
-        if value.contains(BufferUsageFlag::STORAGE_BUFFER) {
+        if value.contains(BufferUsageFlags::STORAGE_BUFFER) {
             ret |= vk::BufferUsageFlags::STORAGE_BUFFER;
         }
-        if value.contains(BufferUsageFlag::INDEX_BUFFER) {
+        if value.contains(BufferUsageFlags::INDEX_BUFFER) {
             ret |= vk::BufferUsageFlags::INDEX_BUFFER;
         }
-        if value.contains(BufferUsageFlag::VERTEX_BUFFER) {
+        if value.contains(BufferUsageFlags::VERTEX_BUFFER) {
             ret |= vk::BufferUsageFlags::VERTEX_BUFFER;
         }
-        if value.contains(BufferUsageFlag::INDIRECT_BUFFER) {
+        if value.contains(BufferUsageFlags::INDIRECT_BUFFER) {
             ret |= vk::BufferUsageFlags::INDIRECT_BUFFER;
         }
         ret
     }
 }
 
-impl From<TextureUsageFlag> for vk::ImageUsageFlags {
-    fn from(value: TextureUsageFlag) -> Self {
+impl From<TextureUsageFlags> for vk::ImageUsageFlags {
+    fn from(value: TextureUsageFlags) -> Self {
         let mut ret = vk::ImageUsageFlags::empty();
-        if value.contains(TextureUsageFlag::TRANSFER_SRC) {
+        if value.contains(TextureUsageFlags::TRANSFER_SRC) {
             ret |= vk::ImageUsageFlags::TRANSFER_SRC;
         }
-        if value.contains(TextureUsageFlag::TRANSFER_DST) {
+        if value.contains(TextureUsageFlags::TRANSFER_DST) {
             ret |= vk::ImageUsageFlags::TRANSFER_DST;
         }
-        if value.contains(TextureUsageFlag::SAMPLED) {
+        if value.contains(TextureUsageFlags::SAMPLED) {
             ret |= vk::ImageUsageFlags::SAMPLED;
         }
-        if value.contains(TextureUsageFlag::STORAGE) {
+        if value.contains(TextureUsageFlags::STORAGE) {
             ret |= vk::ImageUsageFlags::STORAGE;
         }
-        if value.contains(TextureUsageFlag::COLOR_ATTACHMENT) {
+        if value.contains(TextureUsageFlags::COLOR_ATTACHMENT) {
             ret |= vk::ImageUsageFlags::COLOR_ATTACHMENT;
         }
-        if value.contains(TextureUsageFlag::DEPTH_STENCIL_ATTACHMENT) {
+        if value.contains(TextureUsageFlags::DEPTH_STENCIL_ATTACHMENT) {
             ret |= vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT;
         }
-        if value.contains(TextureUsageFlag::TRANSIENT_ATTACHMENT) {
+        if value.contains(TextureUsageFlags::TRANSIENT_ATTACHMENT) {
             ret |= vk::ImageUsageFlags::TRANSIENT_ATTACHMENT;
         }
-        if value.contains(TextureUsageFlag::INPUT_ATTACHMENT) {
+        if value.contains(TextureUsageFlags::INPUT_ATTACHMENT) {
             ret |= vk::ImageUsageFlags::INPUT_ATTACHMENT;
         }
         ret
@@ -543,5 +532,36 @@ impl From<FilterType> for vk::Filter {
             FilterType::Nearest => vk::Filter::NEAREST,
             FilterType::Linear => vk::Filter::LINEAR,
         }
+    }
+}
+
+impl From<ShaderStageFlags> for vk::ShaderStageFlags {
+    fn from(value: ShaderStageFlags) -> Self {
+        let mut ret = vk::ShaderStageFlags::empty();
+        if value.contains(ShaderStageFlags::VERTEX) {
+            ret |= vk::ShaderStageFlags::VERTEX;
+        }
+        if value.contains(ShaderStageFlags::TESSELLATION_CONTROL) {
+            ret |= vk::ShaderStageFlags::TESSELLATION_CONTROL;
+        }
+        if value.contains(ShaderStageFlags::TESSELLATION_EVALUATION) {
+            ret |= vk::ShaderStageFlags::TESSELLATION_EVALUATION;
+        }
+        if value.contains(ShaderStageFlags::GEOMETRY) {
+            ret |= vk::ShaderStageFlags::GEOMETRY;
+        }
+        if value.contains(ShaderStageFlags::FRAGMENT) {
+            ret |= vk::ShaderStageFlags::FRAGMENT;
+        }
+        if value.contains(ShaderStageFlags::COMPUTE) {
+            ret |= vk::ShaderStageFlags::COMPUTE;
+        }
+        if value.contains(ShaderStageFlags::ALL_GRAPHICS) {
+            ret |= vk::ShaderStageFlags::ALL_GRAPHICS;
+        }
+        if value.contains(ShaderStageFlags::ALL) {
+            ret |= vk::ShaderStageFlags::ALL;
+        }
+        ret
     }
 }

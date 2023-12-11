@@ -42,7 +42,7 @@ pub struct ImageCreateDesc<'a> {
     pub format: Format,
     pub extent: [u32; 3],
     pub texture_type: ImageType,
-    pub usage: TextureUsageFlag,
+    pub usage: TextureUsageFlags,
     pub tiling: TextureTiling,
     pub mip_levels: u32,
     pub array_layers: u32,
@@ -103,7 +103,7 @@ pub struct ClearDepthStencil {
 pub struct ShaderModuleCreation<'a> {
     pub name: &'a str,
     pub code: &'a [u32],
-    pub stage: ShaderStage,
+    pub stage: ShaderStageFlags,
     pub entry: &'a str,
 }
 
@@ -380,7 +380,7 @@ pub struct VertexInputAttribute {
 pub struct BufferCreateDesc<'a> {
     pub name: &'a str,
     pub size: usize,
-    pub usage: BufferUsageFlag,
+    pub usage: BufferUsageFlags,
     pub memory: MemoryLocation,
     pub initial_data: Option<&'a [u8]>,
 }
@@ -410,7 +410,7 @@ pub struct DescriptorSetLayoutBinding {
     pub binding: u32,
     pub descriptor_type: DescriptorType,
     pub descriptor_count: u32,
-    pub stage_flags: ShaderStage,
+    pub stage_flags: ShaderStageFlags,
 }
 
 pub struct DescriptorSetLayoutCreateDesc<'a> {

@@ -85,14 +85,6 @@ pub enum TextureComponentSwizzle {
     A,
 }
 
-#[derive(Clone, Copy)]
-pub enum ShaderStage {
-    None,
-    Vertex,
-    Fragment,
-    Compute,
-}
-
 #[derive(Default, Clone, Copy, Debug, Hash)]
 #[allow(non_camel_case_types)]
 pub enum Format {

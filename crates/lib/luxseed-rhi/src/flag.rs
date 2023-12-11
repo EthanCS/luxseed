@@ -2,7 +2,21 @@ use bitflags::bitflags;
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct BufferUsageFlag : u32 {
+    pub struct ShaderStageFlags : u32 {
+        const VERTEX = 0b1;
+        const TESSELLATION_CONTROL = 0b10;
+        const TESSELLATION_EVALUATION = 0b100;
+        const GEOMETRY = 0b1000;
+        const FRAGMENT = 0b1_0000;
+        const COMPUTE = 0b10_0000;
+        const ALL_GRAPHICS = 0x0000_001F;
+        const ALL = 0x7FFF_FFFF;
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct BufferUsageFlags : u32 {
         const TRANSFER_SRC = 0b1;
         const TRANSFER_DST = 0b10;
         const UNIFORM_TEXEL_BUFFER = 0b100;
@@ -17,7 +31,7 @@ bitflags! {
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct TextureUsageFlag : u32 {
+    pub struct TextureUsageFlags : u32 {
         const TRANSFER_SRC = 0b1;
         const TRANSFER_DST = 0b10;
         const SAMPLED = 0b100;

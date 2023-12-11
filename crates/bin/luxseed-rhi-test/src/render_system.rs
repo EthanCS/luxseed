@@ -182,7 +182,7 @@ impl RenderSystem {
             &BufferCreateDesc {
                 name: "Staging Buffer",
                 size: size as usize,
-                usage: BufferUsageFlag::TRANSFER_SRC,
+                usage: BufferUsageFlags::TRANSFER_SRC,
                 memory: MemoryLocation::CpuToGpu,
                 initial_data: Some(data),
             },

@@ -78,7 +78,7 @@ impl App {
             &BufferCreateDesc {
                 name: "Triangle_Vertex",
                 size: vertices.len() * std::mem::size_of::<Vertex>(),
-                usage: BufferUsageFlag::TRANSFER_DST | BufferUsageFlag::VERTEX_BUFFER,
+                usage: BufferUsageFlags::TRANSFER_DST | BufferUsageFlags::VERTEX_BUFFER,
                 memory: MemoryLocation::GpuOnly,
                 initial_data: None,
             },
@@ -92,7 +92,7 @@ impl App {
             &BufferCreateDesc {
                 name: "Triangle_Index",
                 size: indices.len() * std::mem::size_of::<u16>(),
-                usage: BufferUsageFlag::TRANSFER_DST | BufferUsageFlag::INDEX_BUFFER,
+                usage: BufferUsageFlags::TRANSFER_DST | BufferUsageFlags::INDEX_BUFFER,
                 memory: MemoryLocation::GpuOnly,
                 initial_data: None,
             },
@@ -107,7 +107,7 @@ impl App {
                 &BufferCreateDesc {
                     name: "Triangle_UBO",
                     size: std::mem::size_of::<UniformBufferObject>(),
-                    usage: BufferUsageFlag::UNIFORM_BUFFER,
+                    usage: BufferUsageFlags::UNIFORM_BUFFER,
                     memory: MemoryLocation::CpuToGpu,
                     initial_data: None,
                 },
