@@ -55,14 +55,14 @@ impl App {
             "hello",
             &fs::read_to_string("assets/luxseed-rhi-test/hello_world.vert")
                 .expect("Should have been able to read the file"),
-            ShaderStage::Vertex,
+            ShaderStageFlags::VERTEX,
             "main",
         )?;
         let fs = sys.compile_shader(
             "hello",
             &fs::read_to_string("assets/luxseed-rhi-test/hello_world.frag")
                 .expect("Should have been able to read the file"),
-            ShaderStage::Fragment,
+            ShaderStageFlags::FRAGMENT,
             "main",
         )?;
 
@@ -123,7 +123,7 @@ impl App {
                     binding: 0,
                     descriptor_type: DescriptorType::UniformBuffer,
                     descriptor_count: 1,
-                    stage_flags: ShaderStage::Vertex,
+                    stage_flags: ShaderStageFlags::VERTEX,
                 }],
             },
         )?;

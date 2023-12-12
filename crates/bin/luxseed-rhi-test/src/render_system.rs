@@ -237,7 +237,7 @@ impl RenderSystem {
         &mut self,
         name: &str,
         code: &str,
-        stage: ShaderStage,
+        stage: ShaderStageFlags,
         entry: &str,
     ) -> Result<Handle<Shader>> {
         let compiler = shaderc::Compiler::new().unwrap();
@@ -249,9 +249,9 @@ impl RenderSystem {
                     .compile_into_spirv(
                         code,
                         match stage {
-                            ShaderStage::Vertex => shaderc::ShaderKind::Vertex,
-                            ShaderStage::Fragment => shaderc::ShaderKind::Fragment,
-                            ShaderStage::Compute => shaderc::ShaderKind::Compute,
+                            ShaderStageFlags::VERTEX => shaderc::ShaderKind::Vertex,
+                            ShaderStageFlags::FRAGMENT => shaderc::ShaderKind::Fragment,
+                            ShaderStageFlags::COMPUTE => shaderc::ShaderKind::Compute,
                             _ => panic!("Unsupported shader stage"),
                         },
                         "shader.glsl",
