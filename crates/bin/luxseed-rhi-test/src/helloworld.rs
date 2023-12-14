@@ -176,7 +176,7 @@ impl App {
             );
             let descriptor_set = sys.rhi.create_descriptor_set(
                 &DescriptorSetCreateDesc::new(descriptor_pool, descriptor_set_layout)
-                    .bind_buffer(0, uniform_buffers[i]),
+                    .bind_uniform_buffer(0, uniform_buffers[i]),
             )?;
             descriptor_sets.push(descriptor_set);
         }

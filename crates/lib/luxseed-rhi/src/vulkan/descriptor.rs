@@ -232,7 +232,7 @@ impl VulkanDevice {
                 .dst_array_element(0)
                 .descriptor_type(binding_info.type_.into());
             match binding_info.type_ {
-                DescriptorType::UniformBuffer | DescriptorType::UniformBufferDynamic => {
+                DescriptorType::UniformBuffer => {
                     let buffer_start_index = buffer_infos.len();
 
                     let buffer =
@@ -246,7 +246,27 @@ impl VulkanDevice {
 
                     dst_set = dst_set.buffer_info(&buffer_infos[buffer_start_index..]);
                 }
-                _ => {}
+                DescriptorType::CombinedImageSampler => {
+                    let image_start_index = image_infos.len();
+
+                    let image_view = p_image_view
+                        .get(binding_data.image_view.unwrap())
+                        .context("Image View not found")?;
+                    let sampler = p_sampler
+                        .get(binding_data.sampler.unwrap())
+                        .context("Sampler not found")?;
+                    let image_info = vk::DescriptorImageInfo::builder()
+                        .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+                        .image_view(image_view.raw)
+                        .sampler(sampler.raw)
+                        .build();
+                    image_infos.push(image_info);
+
+                    dst_set = dst_set.image_info(&image_infos[image_start_index..]);
+                }
+                _ => {
+                    todo!()
+                }
             }
 
             write_sets.push(dst_set.build());

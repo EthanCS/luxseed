@@ -478,7 +478,7 @@ impl DescriptorSetCreateDesc {
         self
     }
 
-    pub fn bind_image_view_with_sampler(
+    pub fn bind_combined_image_sampler(
         mut self,
         binding: u16,
         image_view: Handle<ImageView>,
@@ -493,7 +493,7 @@ impl DescriptorSetCreateDesc {
         self
     }
 
-    pub fn bind_buffer(mut self, binding: u16, buffer: Handle<Buffer>) -> Self {
+    pub fn bind_uniform_buffer(mut self, binding: u16, buffer: Handle<Buffer>) -> Self {
         self.bindings.push(DescriptorBindingData {
             binding: binding,
             buffer: Some(buffer),
