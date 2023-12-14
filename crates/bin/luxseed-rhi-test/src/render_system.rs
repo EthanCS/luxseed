@@ -181,7 +181,7 @@ impl RenderSystem {
             self.device,
             &BufferCreateDesc {
                 name: "Staging Buffer",
-                size: size as usize,
+                size: size,
                 usage: BufferUsageFlags::TRANSFER_SRC,
                 memory: MemoryLocation::CpuToGpu,
                 initial_data: Some(data),

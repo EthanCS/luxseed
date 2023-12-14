@@ -357,51 +357,30 @@ impl RHI for VulkanRHI {
         Ok(())
     }
 
-    fn allocate_descriptor_set(
+    fn create_descriptor_set(
         &mut self,
-        pool: Handle<DescriptorPool>,
-        set_layout: Handle<DescriptorSetLayout>,
+        desc: &DescriptorSetCreateDesc,
     ) -> Result<Handle<DescriptorSet>> {
-        let dp =
-            self.res_pool.descriptor_pool.get_mut(pool).context("Descriptor pool not found.")?;
-        let device = self.res_pool.device.get(dp.device.unwrap()).context("Device not found.")?;
-        let layout =
-            self.res_pool.descriptor_set_layout.get(set_layout).context("Layout not found.")?;
         let item = self.res_pool.descriptor_set.malloc();
-        item.1.init(device, dp, layout)?;
+        item.1.init(
+            desc,
+            &self.res_pool.device,
+            &self.res_pool.descriptor_pool,
+            &self.res_pool.descriptor_set_layout,
+            &self.res_pool.buffer,
+            &self.res_pool.image_view,
+            &self.res_pool.sampler,
+        )?;
         Ok(item.0)
     }
 
-    fn free_descriptor_sets(&mut self, sets: &[Handle<DescriptorSet>]) -> Result<()> {
+    fn destroy_descriptor_sets(&mut self, sets: &[Handle<DescriptorSet>]) -> Result<()> {
         for set in sets {
             if let Some(ds) = self.res_pool.descriptor_set.get_mut(*set) {
-                let device =
-                    self.res_pool.device.get(ds.device.unwrap()).context("Device not found.")?;
-                let pool = self
-                    .res_pool
-                    .descriptor_pool
-                    .get(ds.pool.unwrap())
-                    .context("Descriptor pool not found.")?;
-                ds.destroy(device, pool)?;
+                ds.destroy(&self.res_pool.device, &self.res_pool.descriptor_pool)?;
                 self.res_pool.descriptor_set.free(*set);
             }
         }
-        Ok(())
-    }
-
-    fn update_descriptor_sets(
-        &self,
-        device: Handle<Device>,
-        writes: &[DescriptorSetWriteDesc],
-        copies: &[DescriptorSetCopyDesc],
-    ) -> Result<()> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
-        device.update_descriptor_sets(
-            writes,
-            copies,
-            &self.res_pool.buffer,
-            &self.res_pool.descriptor_set,
-        )?;
         Ok(())
     }
 

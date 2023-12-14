@@ -17,13 +17,14 @@ pub struct VulkanBuffer {
     pub device: Option<Handle<Device>>,
     pub requirements: vk::MemoryRequirements,
     pub allocation: Option<Allocation>,
+    pub size: u64,
 }
 impl_handle!(VulkanBuffer, Buffer, handle);
 
 impl VulkanBuffer {
     pub fn init(&mut self, device: &mut VulkanDevice, desc: &BufferCreateDesc) -> Result<()> {
         let info = vk::BufferCreateInfo::builder()
-            .size(desc.size as u64)
+            .size(desc.size)
             .usage(desc.usage.into())
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
             .build();
@@ -53,6 +54,7 @@ impl VulkanBuffer {
         self.device = device.get_handle();
         self.raw = raw;
         self.requirements = requirements;
+        self.size = desc.size as u64;
 
         Ok(())
     }
@@ -71,6 +73,7 @@ impl VulkanBuffer {
         self.device = None;
         self.allocation = None;
         self.requirements = vk::MemoryRequirements::default();
+        self.size = 0;
 
         Ok(())
     }

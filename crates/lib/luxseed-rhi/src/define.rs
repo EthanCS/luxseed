@@ -1,6 +1,9 @@
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+use smallvec::SmallVec;
 
 use crate::{enums::*, flag::*, pool::Handle, MAX_RENDER_TARGETS};
+
+pub const MAX_DESCRIPTORS_PER_SET: usize = 16;
 
 #[derive(Clone)]
 pub struct AdapterInfo {
@@ -379,7 +382,7 @@ pub struct VertexInputAttribute {
 
 pub struct BufferCreateDesc<'a> {
     pub name: &'a str,
-    pub size: usize,
+    pub size: u64,
     pub usage: BufferUsageFlags,
     pub memory: MemoryLocation,
     pub initial_data: Option<&'a [u8]>,
@@ -405,18 +408,6 @@ pub struct BufferImageCopyRegion {
     pub image_extent: [u32; 3],
 }
 
-#[derive(Clone, Copy)]
-pub struct DescriptorSetLayoutBinding {
-    pub binding: u32,
-    pub descriptor_type: DescriptorType,
-    pub descriptor_count: u32,
-    pub stage_flags: ShaderStageFlags,
-}
-
-pub struct DescriptorSetLayoutCreateDesc<'a> {
-    pub bindings: &'a [DescriptorSetLayoutBinding],
-}
-
 pub struct DescriptorPoolSize {
     pub descriptor_type: DescriptorType,
     pub descriptor_count: u32,
@@ -428,28 +419,89 @@ pub struct DescriptorPoolCreateDesc<'a> {
 }
 
 #[derive(Clone, Copy)]
-pub struct DescriptorBufferInfo {
-    pub buffer: Handle<Buffer>,
-    pub offset: u64,
-    pub range: u64,
-}
-
-pub struct DescriptorSetWriteDesc<'a> {
-    pub dst_set: Handle<DescriptorSet>,
-    pub dst_binding: u32,
-    pub dst_array_element: u32,
+pub struct DescriptorSetLayoutBinding {
+    pub binding: u32,
     pub descriptor_type: DescriptorType,
-    pub buffer_infos: &'a [DescriptorBufferInfo],
+    pub descriptor_count: u32,
+    pub stage_flags: ShaderStageFlags,
 }
 
-pub struct DescriptorSetCopyDesc {
-    pub src_set: Handle<DescriptorSet>,
-    pub src_binding: u32,
-    pub src_array_element: u32,
-    pub dst_set: Handle<DescriptorSet>,
-    pub dst_binding: u32,
-    pub dst_array_element: u32,
-    pub descriptor_count: u32,
+#[derive(Clone, Copy)]
+pub struct DescriptorBindingInfo {
+    pub index: u16,
+    pub type_: DescriptorType,
+    pub count: u16,
+    pub stage_flags: ShaderStageFlags,
+}
+
+pub struct DescriptorSetLayoutCreateDesc {
+    pub bindings: SmallVec<[DescriptorBindingInfo; MAX_DESCRIPTORS_PER_SET]>,
+}
+
+impl DescriptorSetLayoutCreateDesc {
+    pub fn new() -> Self {
+        Self { bindings: SmallVec::new() }
+    }
+
+    pub fn add_binding_info(mut self, binding: DescriptorBindingInfo) -> Self {
+        self.bindings.push(binding);
+        self
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct DescriptorBindingData {
+    pub binding: u16,
+    pub buffer: Option<Handle<Buffer>>,
+    pub sampler: Option<Handle<Sampler>>,
+    pub image_view: Option<Handle<ImageView>>,
+}
+
+pub struct DescriptorSetCreateDesc {
+    pub pool: Handle<DescriptorPool>,
+    pub layout: Handle<DescriptorSetLayout>,
+    pub bindings: SmallVec<[DescriptorBindingData; MAX_DESCRIPTORS_PER_SET]>,
+}
+
+impl DescriptorSetCreateDesc {
+    pub fn new(pool: Handle<DescriptorPool>, layout: Handle<DescriptorSetLayout>) -> Self {
+        Self { pool, layout, bindings: SmallVec::new() }
+    }
+
+    pub fn bind_image_view(mut self, binding: u16, image_view: Handle<ImageView>) -> Self {
+        self.bindings.push(DescriptorBindingData {
+            binding: binding,
+            buffer: None,
+            sampler: None,
+            image_view: Some(image_view),
+        });
+        self
+    }
+
+    pub fn bind_image_view_with_sampler(
+        mut self,
+        binding: u16,
+        image_view: Handle<ImageView>,
+        sampler: Handle<Sampler>,
+    ) -> Self {
+        self.bindings.push(DescriptorBindingData {
+            binding: binding,
+            buffer: None,
+            sampler: Some(sampler),
+            image_view: Some(image_view),
+        });
+        self
+    }
+
+    pub fn bind_buffer(mut self, binding: u16, buffer: Handle<Buffer>) -> Self {
+        self.bindings.push(DescriptorBindingData {
+            binding: binding,
+            buffer: Some(buffer),
+            sampler: None,
+            image_view: None,
+        });
+        self
+    }
 }
 
 pub struct MemoryBarrier {

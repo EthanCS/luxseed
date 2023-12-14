@@ -112,18 +112,13 @@ pub trait RHI {
         desc: &DescriptorPoolCreateDesc,
     ) -> Result<Handle<DescriptorPool>>;
     fn destroy_descriptor_pool(&mut self, handle: Handle<DescriptorPool>) -> Result<()>;
-    fn allocate_descriptor_set(
+
+    fn create_descriptor_set(
         &mut self,
-        pool: Handle<DescriptorPool>,
-        layout: Handle<DescriptorSetLayout>,
+        desc: &DescriptorSetCreateDesc,
     ) -> Result<Handle<DescriptorSet>>;
-    fn free_descriptor_sets(&mut self, sets: &[Handle<DescriptorSet>]) -> Result<()>;
-    fn update_descriptor_sets(
-        &self,
-        device: Handle<Device>,
-        writes: &[DescriptorSetWriteDesc],
-        copies: &[DescriptorSetCopyDesc],
-    ) -> Result<()>;
+
+    fn destroy_descriptor_sets(&mut self, sets: &[Handle<DescriptorSet>]) -> Result<()>;
 
     // Image / Image View
     fn create_image(

@@ -77,7 +77,7 @@ impl App {
             sys.device,
             &BufferCreateDesc {
                 name: "Triangle_Vertex",
-                size: vertices.len() * std::mem::size_of::<Vertex>(),
+                size: (vertices.len() * std::mem::size_of::<Vertex>()) as u64,
                 usage: BufferUsageFlags::TRANSFER_DST | BufferUsageFlags::VERTEX_BUFFER,
                 memory: MemoryLocation::GpuOnly,
                 initial_data: None,
@@ -91,7 +91,7 @@ impl App {
             sys.device,
             &BufferCreateDesc {
                 name: "Triangle_Index",
-                size: indices.len() * std::mem::size_of::<u16>(),
+                size: (indices.len() * std::mem::size_of::<u16>()) as u64,
                 usage: BufferUsageFlags::TRANSFER_DST | BufferUsageFlags::INDEX_BUFFER,
                 memory: MemoryLocation::GpuOnly,
                 initial_data: None,
@@ -106,7 +106,7 @@ impl App {
                 sys.device,
                 &BufferCreateDesc {
                     name: "Triangle_UBO",
-                    size: std::mem::size_of::<UniformBufferObject>(),
+                    size: std::mem::size_of::<UniformBufferObject>() as u64,
                     usage: BufferUsageFlags::UNIFORM_BUFFER,
                     memory: MemoryLocation::CpuToGpu,
                     initial_data: None,
@@ -118,14 +118,12 @@ impl App {
         // Descriptor set layout
         let descriptor_set_layout = sys.rhi.create_descriptor_set_layout(
             sys.device,
-            &DescriptorSetLayoutCreateDesc {
-                bindings: &[DescriptorSetLayoutBinding {
-                    binding: 0,
-                    descriptor_type: DescriptorType::UniformBuffer,
-                    descriptor_count: 1,
-                    stage_flags: ShaderStageFlags::VERTEX,
-                }],
-            },
+            &DescriptorSetLayoutCreateDesc::new().add_binding_info(DescriptorBindingInfo {
+                index: 0,
+                type_: DescriptorType::UniformBuffer,
+                count: 1,
+                stage_flags: ShaderStageFlags::VERTEX,
+            }),
         )?;
 
         // Descriptor pool
@@ -176,22 +174,9 @@ impl App {
             command_buffers.push(
                 sys.rhi.create_command_buffer(sys.command_pool, CommandBufferLevel::Primary)?,
             );
-            let descriptor_set =
-                sys.rhi.allocate_descriptor_set(descriptor_pool, descriptor_set_layout)?;
-            sys.rhi.update_descriptor_sets(
-                sys.device,
-                &[DescriptorSetWriteDesc {
-                    dst_set: descriptor_set,
-                    dst_binding: 0,
-                    dst_array_element: 0,
-                    descriptor_type: DescriptorType::UniformBuffer,
-                    buffer_infos: &[DescriptorBufferInfo {
-                        buffer: uniform_buffers[i],
-                        offset: 0,
-                        range: std::mem::size_of::<UniformBufferObject>() as u64,
-                    }],
-                }],
-                &[],
+            let descriptor_set = sys.rhi.create_descriptor_set(
+                &DescriptorSetCreateDesc::new(descriptor_pool, descriptor_set_layout)
+                    .bind_buffer(0, uniform_buffers[i]),
             )?;
             descriptor_sets.push(descriptor_set);
         }
