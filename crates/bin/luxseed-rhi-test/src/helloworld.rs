@@ -115,10 +115,10 @@ impl App {
 
         // Vertex buffer
         let vertices = vec![
-            Vertex::new(vec2(-0.5, -0.5), vec3(1.0, 0.0, 0.0), vec2(1.0, 0.0)),
-            Vertex::new(vec2(0.5, -0.5), vec3(0.0, 1.0, 0.0), vec2(0.0, 0.0)),
-            Vertex::new(vec2(0.5, 0.5), vec3(0.0, 0.0, 1.0), vec2(0.0, 1.0)),
-            Vertex::new(vec2(-0.5, 0.5), vec3(1.0, 1.0, 1.0), vec2(1.0, 1.0)),
+            Vertex::new(vec2(-0.5, -0.5), vec3(1.0, 0.0, 0.0), vec2(0.0, 0.0)),
+            Vertex::new(vec2(0.5, -0.5), vec3(0.0, 1.0, 0.0), vec2(1.0, 0.0)),
+            Vertex::new(vec2(0.5, 0.5), vec3(0.0, 0.0, 1.0), vec2(1.0, 1.0)),
+            Vertex::new(vec2(-0.5, 0.5), vec3(1.0, 1.0, 1.0), vec2(0.0, 1.0)),
         ];
         let vertex_buffer = sys.rhi.create_buffer(
             sys.device,
@@ -285,6 +285,7 @@ impl App {
                 10.0,
             ),
         };
+
         let ub = self.uniform_buffers[self.sys.frame];
         self.sys
             .rhi

@@ -220,8 +220,8 @@ pub struct RasterState {
 impl Default for RasterState {
     fn default() -> Self {
         Self {
-            cull_mode: CullMode::None,
-            front_face: FrontFace::CounterClockwise,
+            cull_mode: CullMode::Back,
+            front_face: FrontFace::Clockwise,
             fill_mode: PolygonMode::Fill,
         }
     }

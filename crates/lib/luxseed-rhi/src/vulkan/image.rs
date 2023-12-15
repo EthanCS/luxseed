@@ -72,7 +72,7 @@ impl VulkanImage {
 
         let requirements = unsafe { device.raw().get_image_memory_requirements(raw) };
         let allocator = device.allocator.as_mut().context("Device has not gpu allocator")?;
-        let mut allocation = allocator.allocate(&AllocationCreateDesc {
+        let allocation = allocator.allocate(&AllocationCreateDesc {
             name: desc.name,
             requirements,
             location: gpu_allocator::MemoryLocation::GpuOnly,
@@ -252,7 +252,7 @@ impl VulkanSampler {
             .compare_op(compare_op)
             .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
             .unnormalized_coordinates(false);
-        
+
         self.raw = unsafe { device.raw().create_sampler(&sampler_info, None)? };
         self.device = device.get_handle();
         Ok(())
