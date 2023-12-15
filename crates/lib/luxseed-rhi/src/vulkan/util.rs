@@ -340,31 +340,31 @@ impl From<BufferUsageFlags> for vk::BufferUsageFlags {
     }
 }
 
-impl From<TextureUsageFlags> for vk::ImageUsageFlags {
-    fn from(value: TextureUsageFlags) -> Self {
+impl From<ImageUsageFlags> for vk::ImageUsageFlags {
+    fn from(value: ImageUsageFlags) -> Self {
         let mut ret = vk::ImageUsageFlags::empty();
-        if value.contains(TextureUsageFlags::TRANSFER_SRC) {
+        if value.contains(ImageUsageFlags::TRANSFER_SRC) {
             ret |= vk::ImageUsageFlags::TRANSFER_SRC;
         }
-        if value.contains(TextureUsageFlags::TRANSFER_DST) {
+        if value.contains(ImageUsageFlags::TRANSFER_DST) {
             ret |= vk::ImageUsageFlags::TRANSFER_DST;
         }
-        if value.contains(TextureUsageFlags::SAMPLED) {
+        if value.contains(ImageUsageFlags::SAMPLED) {
             ret |= vk::ImageUsageFlags::SAMPLED;
         }
-        if value.contains(TextureUsageFlags::STORAGE) {
+        if value.contains(ImageUsageFlags::STORAGE) {
             ret |= vk::ImageUsageFlags::STORAGE;
         }
-        if value.contains(TextureUsageFlags::COLOR_ATTACHMENT) {
+        if value.contains(ImageUsageFlags::COLOR_ATTACHMENT) {
             ret |= vk::ImageUsageFlags::COLOR_ATTACHMENT;
         }
-        if value.contains(TextureUsageFlags::DEPTH_STENCIL_ATTACHMENT) {
+        if value.contains(ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT) {
             ret |= vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT;
         }
-        if value.contains(TextureUsageFlags::TRANSIENT_ATTACHMENT) {
+        if value.contains(ImageUsageFlags::TRANSIENT_ATTACHMENT) {
             ret |= vk::ImageUsageFlags::TRANSIENT_ATTACHMENT;
         }
-        if value.contains(TextureUsageFlags::INPUT_ATTACHMENT) {
+        if value.contains(ImageUsageFlags::INPUT_ATTACHMENT) {
             ret |= vk::ImageUsageFlags::INPUT_ATTACHMENT;
         }
         ret
@@ -486,22 +486,28 @@ impl From<PipelineBindPoint> for vk::PipelineBindPoint {
     }
 }
 
-impl From<TextureTiling> for vk::ImageTiling {
-    fn from(value: TextureTiling) -> Self {
+impl From<ImageTiling> for vk::ImageTiling {
+    fn from(value: ImageTiling) -> Self {
         match value {
-            TextureTiling::Optimal => vk::ImageTiling::OPTIMAL,
-            TextureTiling::Linear => vk::ImageTiling::LINEAR,
+            ImageTiling::Optimal => vk::ImageTiling::OPTIMAL,
+            ImageTiling::Linear => vk::ImageTiling::LINEAR,
         }
     }
 }
 
-impl From<ImageAspectFlag> for vk::ImageAspectFlags {
-    fn from(value: ImageAspectFlag) -> Self {
-        match value {
-            ImageAspectFlag::Color => vk::ImageAspectFlags::COLOR,
-            ImageAspectFlag::Depth => vk::ImageAspectFlags::DEPTH,
-            ImageAspectFlag::Stencil => vk::ImageAspectFlags::STENCIL,
+impl From<ImageAspectFlags> for vk::ImageAspectFlags {
+    fn from(value: ImageAspectFlags) -> Self {
+        let mut ret = vk::ImageAspectFlags::empty();
+        if value.contains(ImageAspectFlags::COLOR) {
+            ret |= vk::ImageAspectFlags::COLOR;
         }
+        if value.contains(ImageAspectFlags::DEPTH) {
+            ret |= vk::ImageAspectFlags::DEPTH;
+        }
+        if value.contains(ImageAspectFlags::STENCIL) {
+            ret |= vk::ImageAspectFlags::STENCIL;
+        }
+        ret
     }
 }
 
@@ -561,6 +567,64 @@ impl From<ShaderStageFlags> for vk::ShaderStageFlags {
         }
         if value.contains(ShaderStageFlags::ALL) {
             ret |= vk::ShaderStageFlags::ALL;
+        }
+        ret
+    }
+}
+
+impl From<AccessFlags> for vk::AccessFlags {
+    fn from(value: AccessFlags) -> Self {
+        let mut ret = vk::AccessFlags::empty();
+        if value.contains(AccessFlags::INDIRECT_COMMAND_READ) {
+            ret |= vk::AccessFlags::INDIRECT_COMMAND_READ;
+        }
+        if value.contains(AccessFlags::INDEX_READ) {
+            ret |= vk::AccessFlags::INDEX_READ;
+        }
+        if value.contains(AccessFlags::VERTEX_ATTRIBUTE_READ) {
+            ret |= vk::AccessFlags::VERTEX_ATTRIBUTE_READ;
+        }
+        if value.contains(AccessFlags::UNIFORM_READ) {
+            ret |= vk::AccessFlags::UNIFORM_READ;
+        }
+        if value.contains(AccessFlags::INPUT_ATTACHMENT_READ) {
+            ret |= vk::AccessFlags::INPUT_ATTACHMENT_READ;
+        }
+        if value.contains(AccessFlags::SHADER_READ) {
+            ret |= vk::AccessFlags::SHADER_READ;
+        }
+        if value.contains(AccessFlags::SHADER_WRITE) {
+            ret |= vk::AccessFlags::SHADER_WRITE;
+        }
+        if value.contains(AccessFlags::COLOR_ATTACHMENT_READ) {
+            ret |= vk::AccessFlags::COLOR_ATTACHMENT_READ;
+        }
+        if value.contains(AccessFlags::COLOR_ATTACHMENT_WRITE) {
+            ret |= vk::AccessFlags::COLOR_ATTACHMENT_WRITE;
+        }
+        if value.contains(AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ) {
+            ret |= vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ;
+        }
+        if value.contains(AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE) {
+            ret |= vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE;
+        }
+        if value.contains(AccessFlags::TRANSFER_READ) {
+            ret |= vk::AccessFlags::TRANSFER_READ;
+        }
+        if value.contains(AccessFlags::TRANSFER_WRITE) {
+            ret |= vk::AccessFlags::TRANSFER_WRITE;
+        }
+        if value.contains(AccessFlags::HOST_READ) {
+            ret |= vk::AccessFlags::HOST_READ;
+        }
+        if value.contains(AccessFlags::HOST_WRITE) {
+            ret |= vk::AccessFlags::HOST_WRITE;
+        }
+        if value.contains(AccessFlags::MEMORY_READ) {
+            ret |= vk::AccessFlags::MEMORY_READ;
+        }
+        if value.contains(AccessFlags::MEMORY_WRITE) {
+            ret |= vk::AccessFlags::MEMORY_WRITE;
         }
         ret
     }

@@ -79,7 +79,7 @@ impl RenderSystem {
             let view = rhi.create_image_view(
                 device,
                 back_buffer,
-                &TextureViewCreateDesc { ..TextureViewCreateDesc::default() },
+                &ImageViewCreateDesc { ..ImageViewCreateDesc::default() },
             )?;
             let fb = rhi.create_framebuffer(
                 device,
@@ -171,6 +171,41 @@ impl RenderSystem {
         self.in_flight_fences[self.frame]
     }
 
+    pub fn upload_image_by_staging_buffer(
+        &mut self,
+        image: Handle<Image>,
+        data: &[u8],
+        width: u32,
+        height: u32,
+    ) -> Result<()> {
+        let size = data.len() as u64;
+        let staging_buffer = self.rhi.create_buffer(
+            self.device,
+            &BufferCreateDesc {
+                name: "Staging Buffer",
+                size: size,
+                usage: BufferUsageFlags::TRANSFER_SRC,
+                memory: MemoryLocation::CpuToGpu,
+                initial_data: Some(data),
+            },
+        )?;
+        self.transition_image_layout(
+            image,
+            ImageLayout::Undefined,
+            ImageLayout::TransferDstOptimal,
+            ImageAspectFlags::COLOR,
+        )?;
+        self.copy_buffer_to_image(staging_buffer, image, width, height)?;
+        self.transition_image_layout(
+            image,
+            ImageLayout::TransferDstOptimal,
+            ImageLayout::ShaderReadOnlyOptimal,
+            ImageAspectFlags::COLOR,
+        )?;
+        self.rhi.destroy_buffer(staging_buffer)?;
+        Ok(())
+    }
+
     pub fn upload_buffer_by_staging_buffer(
         &mut self,
         buffer: Handle<Buffer>,
@@ -228,6 +263,83 @@ impl RenderSystem {
             src,
             dst,
             &[BufferCopyRegion { size, ..Default::default() }],
+        )?;
+        self.end_single_time_commands(cb)?;
+        Ok(())
+    }
+
+    pub fn copy_buffer_to_image(
+        &mut self,
+        src: Handle<Buffer>,
+        dst: Handle<Image>,
+        width: u32,
+        height: u32,
+    ) -> Result<()> {
+        let cb = self.begin_single_time_commands()?;
+        self.rhi.cmd_copy_buffer_to_image(
+            cb,
+            src,
+            dst,
+            ImageLayout::TransferDstOptimal,
+            &[BufferImageCopyRegion {
+                buffer_offset: 0,
+                buffer_row_length: 0,
+                buffer_image_height: 0,
+                aspect_mask: ImageAspectFlags::COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+                image_offset: [0, 0, 0],
+                image_extent: [width, height, 1],
+            }],
+        )?;
+        self.end_single_time_commands(cb)?;
+        Ok(())
+    }
+
+    pub fn transition_image_layout(
+        &mut self,
+        image: Handle<Image>,
+        old_layout: ImageLayout,
+        new_layout: ImageLayout,
+        aspect_mask: ImageAspectFlags,
+    ) -> Result<()> {
+        let (src_access_mask, dst_access_mask, src_stage_mask, dst_stage_mask) =
+            match (old_layout, new_layout) {
+                (ImageLayout::Undefined, ImageLayout::TransferDstOptimal) => (
+                    AccessFlags::empty(),
+                    AccessFlags::TRANSFER_WRITE,
+                    PipelineStageFlags::TOP_OF_PIPE,
+                    PipelineStageFlags::TRANSFER,
+                ),
+                (ImageLayout::TransferDstOptimal, ImageLayout::ShaderReadOnlyOptimal) => (
+                    AccessFlags::TRANSFER_WRITE,
+                    AccessFlags::SHADER_READ,
+                    PipelineStageFlags::TRANSFER,
+                    PipelineStageFlags::FRAGMENT_SHADER,
+                ),
+                _ => return Err(anyhow::anyhow!("Unsupported image layout transition!")),
+            };
+
+        let cb = self.begin_single_time_commands()?;
+        self.rhi.cmd_pipeline_barrier(
+            cb,
+            src_stage_mask,
+            dst_stage_mask,
+            &[ImageMemoryBarrier {
+                image: image,
+                old_layout: old_layout,
+                new_layout: new_layout,
+                src_queue_family_index: None,
+                dst_queue_family_index: None,
+                aspect_mask: aspect_mask,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+                src_access_mask,
+                dst_access_mask,
+            }],
         )?;
         self.end_single_time_commands(cb)?;
         Ok(())
@@ -296,7 +408,7 @@ impl RenderSystem {
             let view = self.rhi.create_image_view(
                 self.device,
                 back_buffer,
-                &TextureViewCreateDesc { ..TextureViewCreateDesc::default() },
+                &ImageViewCreateDesc { ..ImageViewCreateDesc::default() },
             )?;
             let fb = self.rhi.create_framebuffer(
                 self.device,

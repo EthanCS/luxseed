@@ -389,7 +389,7 @@ impl RHI for VulkanRHI {
         device: Handle<Device>,
         desc: &ImageCreateDesc,
     ) -> Result<Handle<Image>> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
+        let device = self.res_pool.device.get_mut(device).context("Device not found.")?;
         let item = self.res_pool.image.malloc();
         item.1.init(device, desc)?;
         Ok(item.0)
@@ -398,7 +398,7 @@ impl RHI for VulkanRHI {
     fn destroy_image(&mut self, handle: Handle<Image>) -> Result<()> {
         if let Some(v) = self.res_pool.image.get_mut(handle) {
             let device =
-                self.res_pool.device.get(v.device.unwrap()).context("Device not found.")?;
+                self.res_pool.device.get_mut(v.device.unwrap()).context("Device not found.")?;
             // Destory related views
             {
                 for (_, handle) in v.views.drain() {
@@ -407,7 +407,7 @@ impl RHI for VulkanRHI {
                     self.res_pool.image_view.free(handle);
                 }
             }
-            v.destroy(device);
+            v.destroy(device)?;
             self.res_pool.image.free(handle);
         }
         Ok(())
@@ -417,7 +417,7 @@ impl RHI for VulkanRHI {
         &mut self,
         device: Handle<Device>,
         texture: Handle<Image>,
-        desc: &TextureViewCreateDesc,
+        desc: &ImageViewCreateDesc,
     ) -> Result<Handle<ImageView>> {
         let device = self.res_pool.device.get(device).context("Device not found.")?;
         let texture = self.res_pool.image.get_mut(texture).context("Texture not found.")?;

@@ -1,4 +1,7 @@
+use anyhow::Context;
+use anyhow::Result;
 use ash::vk;
+use gpu_allocator::vulkan::*;
 use std::collections::HashMap;
 
 use crate::{
@@ -28,13 +31,19 @@ pub struct VulkanImage {
     pub device: Option<Handle<Device>>,
     pub desc: VulkanImageDesc,
     pub views: HashMap<VulkanImageViewDesc, Handle<ImageView>>,
+    pub requirements: vk::MemoryRequirements,
+    pub allocation: Option<Allocation>,
 }
 impl_handle!(VulkanImage, Image, handle);
 
 impl VulkanImage {
-    pub fn init(&mut self, device: &VulkanDevice, desc: &ImageCreateDesc) -> anyhow::Result<()> {
+    pub fn init(
+        &mut self,
+        device: &mut VulkanDevice,
+        desc: &ImageCreateDesc,
+    ) -> anyhow::Result<()> {
         let image_desc = VulkanImageDesc {
-            image_type: desc.texture_type.into(),
+            image_type: desc.type_.into(),
             format: desc.format.into(),
             extent: vk::Extent3D {
                 width: desc.extent[0],
@@ -59,10 +68,45 @@ impl VulkanImage {
             .initial_layout(desc.initial_layout.into())
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
             .flags(vk::ImageCreateFlags::empty());
-        self.raw = unsafe { device.raw().create_image(&image_info, None)? };
+        let raw = unsafe { device.raw().create_image(&image_info, None)? };
+
+        let requirements = unsafe { device.raw().get_image_memory_requirements(raw) };
+        let allocator = device.allocator.as_mut().context("Device has not gpu allocator")?;
+        let mut allocation = allocator.allocate(&AllocationCreateDesc {
+            name: desc.name,
+            requirements,
+            location: gpu_allocator::MemoryLocation::GpuOnly,
+            linear: true,
+            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+        })?;
+
+        // Bind buffer to memory
+        unsafe { device.raw().bind_image_memory(raw, allocation.memory(), allocation.offset())? };
+
+        self.raw = raw;
+        self.requirements = requirements;
         self.device = device.get_handle();
         self.desc = image_desc;
         self.views.clear();
+        self.allocation = Some(allocation);
+        Ok(())
+    }
+
+    pub fn destroy(&mut self, device: &mut VulkanDevice) -> Result<()> {
+        if let Some(allocator) = device.allocator.as_mut() {
+            if let Some(allocation) = self.allocation.take() {
+                allocator.free(allocation)?;
+            }
+        }
+        unsafe {
+            device.raw().destroy_image(self.raw, None);
+        }
+        self.views.clear();
+        self.raw = vk::Image::null();
+        self.requirements = vk::MemoryRequirements::default();
+        self.device = None;
+        self.desc = Default::default();
+        self.allocation = None;
         Ok(())
     }
 
@@ -79,16 +123,6 @@ impl VulkanImage {
         item.1.init(device, self, desc)?;
         self.views.insert(*desc, item.0);
         Ok(item.0)
-    }
-
-    pub fn destroy(&mut self, device: &VulkanDevice) {
-        unsafe {
-            device.raw().destroy_image(self.raw, None);
-        }
-        self.views.clear();
-        self.raw = vk::Image::null();
-        self.device = None;
-        self.desc = Default::default();
     }
 }
 
@@ -108,7 +142,7 @@ pub struct VulkanImageViewDesc {
 }
 
 impl VulkanImageViewDesc {
-    pub fn from_create_desc(desc: &TextureViewCreateDesc, image: &VulkanImage) -> Self {
+    pub fn from_create_desc(desc: &ImageViewCreateDesc, image: &VulkanImage) -> Self {
         let format = if let Some(f) = desc.format { f.into() } else { image.desc.format };
         Self {
             view_type: desc.view_type.into(),
@@ -218,7 +252,9 @@ impl VulkanSampler {
             .compare_op(compare_op)
             .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
             .unnormalized_coordinates(false);
+        
         self.raw = unsafe { device.raw().create_sampler(&sampler_info, None)? };
+        self.device = device.get_handle();
         Ok(())
     }
 

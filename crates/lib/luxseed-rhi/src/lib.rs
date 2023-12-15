@@ -130,8 +130,8 @@ pub trait RHI {
     fn create_image_view(
         &mut self,
         device: Handle<Device>,
-        texture: Handle<Image>,
-        desc: &TextureViewCreateDesc,
+        image: Handle<Image>,
+        desc: &ImageViewCreateDesc,
     ) -> Result<Handle<ImageView>>;
     fn destroy_image_view(&mut self, handle: Handle<ImageView>) -> Result<()>;
 

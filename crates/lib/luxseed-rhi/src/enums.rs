@@ -67,7 +67,7 @@ pub enum TextureViewAspectMask {
 }
 
 #[derive(Default, Clone, Copy)]
-pub enum TextureTiling {
+pub enum ImageTiling {
     #[default]
     Optimal,
     Linear,
@@ -269,13 +269,6 @@ pub enum DescriptorType {
 pub enum PipelineBindPoint {
     Graphics,
     Compute,
-}
-
-#[derive(Clone, Copy)]
-pub enum ImageAspectFlag {
-    Color,
-    Depth,
-    Stencil,
 }
 
 pub enum AccessFlag {

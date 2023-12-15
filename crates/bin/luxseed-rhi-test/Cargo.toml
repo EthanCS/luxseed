@@ -13,3 +13,4 @@ dotenvy = "0.15.7"
 shaderc = "0.8.2"
 anyhow = "1.0.70"
 glam = { version = "0.24", default-features = false, features = ["libm"] }
+image = '0.24.7'

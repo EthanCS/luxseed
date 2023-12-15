@@ -44,17 +44,34 @@ pub struct ImageCreateDesc<'a> {
     pub name: &'a str,
     pub format: Format,
     pub extent: [u32; 3],
-    pub texture_type: ImageType,
-    pub usage: TextureUsageFlags,
-    pub tiling: TextureTiling,
+    pub type_: ImageType,
+    pub usage: ImageUsageFlags,
+    pub tiling: ImageTiling,
     pub mip_levels: u32,
     pub array_layers: u32,
     pub samples: SampleCount,
     pub initial_layout: ImageLayout,
 }
 
+impl<'a> ImageCreateDesc<'a> {
+    pub fn new_2d(name: &'a str, format: Format, width: u32, height: u32) -> Self {
+        Self {
+            name,
+            format,
+            extent: [width, height, 1],
+            type_: ImageType::Texture2D,
+            usage: ImageUsageFlags::SAMPLED | ImageUsageFlags::TRANSFER_DST,
+            tiling: ImageTiling::Optimal,
+            mip_levels: 1,
+            array_layers: 1,
+            samples: SampleCount::Sample1,
+            initial_layout: ImageLayout::Undefined,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
-pub struct TextureViewCreateDesc {
+pub struct ImageViewCreateDesc {
     pub format: Option<Format>,
     pub view_type: TextureViewType,
     pub base_mip_level: u8,
@@ -68,7 +85,7 @@ pub struct TextureViewCreateDesc {
     pub component_a: TextureComponentSwizzle,
 }
 
-impl Default for TextureViewCreateDesc {
+impl Default for ImageViewCreateDesc {
     fn default() -> Self {
         Self {
             format: None,
@@ -400,7 +417,7 @@ pub struct BufferImageCopyRegion {
     pub buffer_offset: u64,
     pub buffer_row_length: u32,
     pub buffer_image_height: u32,
-    pub aspect_mask: ImageAspectFlag,
+    pub aspect_mask: ImageAspectFlags,
     pub mip_level: u32,
     pub base_array_layer: u32,
     pub layer_count: u32,
@@ -521,7 +538,7 @@ pub struct BufferMemoryBarrier {
 
 pub struct ImageMemoryBarrier {
     pub image: Handle<Image>,
-    pub aspect_mask: ImageAspectFlag,
+    pub aspect_mask: ImageAspectFlags,
     pub base_mip_level: u32,
     pub level_count: u32,
     pub base_array_layer: u32,
@@ -530,6 +547,8 @@ pub struct ImageMemoryBarrier {
     pub new_layout: ImageLayout,
     pub src_queue_family_index: Option<u32>,
     pub dst_queue_family_index: Option<u32>,
+    pub src_access_mask: AccessFlags,
+    pub dst_access_mask: AccessFlags,
 }
 
 pub struct SamplerCreateDesc {

@@ -387,8 +387,8 @@ impl VulkanCommandBuffer {
                             .layer_count(barrier.layer_count)
                             .build(),
                     )
-                    .src_access_mask(vk::AccessFlags::empty())
-                    .dst_access_mask(vk::AccessFlags::empty())
+                    .src_access_mask(barrier.src_access_mask.into())
+                    .dst_access_mask(barrier.dst_access_mask.into())
                     .build(),
             );
         }

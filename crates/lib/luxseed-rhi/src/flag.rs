@@ -31,7 +31,7 @@ bitflags! {
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct TextureUsageFlags : u32 {
+    pub struct ImageUsageFlags : u32 {
         const TRANSFER_SRC = 0b1;
         const TRANSFER_DST = 0b10;
         const SAMPLED = 0b100;
@@ -63,5 +63,37 @@ bitflags! {
         const HOST = 0b100_0000_0000_0000;
         const ALL_GRAPHICS = 0b1000_0000_0000_0000;
         const ALL_COMMANDS = 0b1_0000_0000_0000_0000;
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct ImageAspectFlags : u32 {
+        const COLOR = 0b1;
+        const DEPTH = 0b10;
+        const STENCIL = 0b100;
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct AccessFlags : u32 {
+        const INDIRECT_COMMAND_READ = 0b1;
+        const INDEX_READ = 0b10;
+        const VERTEX_ATTRIBUTE_READ = 0b100;
+        const UNIFORM_READ = 0b1000;
+        const INPUT_ATTACHMENT_READ = 0b1_0000;
+        const SHADER_READ = 0b10_0000;
+        const SHADER_WRITE = 0b100_0000;
+        const COLOR_ATTACHMENT_READ = 0b1000_0000;
+        const COLOR_ATTACHMENT_WRITE = 0b1_0000_0000;
+        const DEPTH_STENCIL_ATTACHMENT_READ = 0b10_0000_0000;
+        const DEPTH_STENCIL_ATTACHMENT_WRITE = 0b100_0000_0000;
+        const TRANSFER_READ = 0b1000_0000_0000;
+        const TRANSFER_WRITE = 0b1_0000_0000_0000;
+        const HOST_READ = 0b10_0000_0000_0000;
+        const HOST_WRITE = 0b100_0000_0000_0000;
+        const MEMORY_READ = 0b1000_0000_0000_0000;
+        const MEMORY_WRITE = 0b1_0000_0000_0000_0000;
     }
 }
