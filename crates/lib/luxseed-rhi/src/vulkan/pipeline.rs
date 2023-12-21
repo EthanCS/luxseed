@@ -2,11 +2,9 @@ use anyhow::{Context, Result};
 use ash::vk;
 
 use crate::{
-    define::{
-        Device, PipelineLayout, PipelineLayoutCreateDesc, RasterPipeline, RasterPipelineCreateDesc,
-    },
+    define::{PipelineLayout, PipelineLayoutCreateDesc, RasterPipeline, RasterPipelineCreateDesc},
     impl_handle,
-    pool::{Handle, Handled, Pool},
+    pool::{Handle, Pool},
 };
 
 use super::{descriptor::VulkanDescriptorSetLayout, device::VulkanDevice, shader::VulkanShader};
@@ -15,7 +13,6 @@ use super::{descriptor::VulkanDescriptorSetLayout, device::VulkanDevice, shader:
 pub struct VulkanPipelineLayout {
     pub handle: Option<Handle<PipelineLayout>>,
     pub raw: vk::PipelineLayout,
-    pub device: Option<Handle<Device>>,
 }
 impl_handle!(VulkanPipelineLayout, PipelineLayout, handle);
 
@@ -43,7 +40,6 @@ impl VulkanPipelineLayout {
             )?
         };
         self.raw = raw;
-        self.device = device.get_handle();
         Ok(())
     }
 
@@ -52,7 +48,6 @@ impl VulkanPipelineLayout {
             device.raw().destroy_pipeline_layout(self.raw, None);
         }
         self.raw = vk::PipelineLayout::null();
-        self.device = None;
     }
 }
 
@@ -60,7 +55,6 @@ impl VulkanPipelineLayout {
 pub struct VulkanRasterPipeline {
     pub raw: vk::Pipeline,
     pub handle: Option<Handle<RasterPipeline>>,
-    pub device: Option<Handle<Device>>,
 }
 impl_handle!(VulkanRasterPipeline, RasterPipeline, handle);
 
@@ -222,7 +216,6 @@ impl VulkanRasterPipeline {
             .base_pipeline_index(-1)
             .build();
 
-        self.device = device.get_handle();
         self.raw = unsafe {
             device
                 .raw()
@@ -236,7 +229,6 @@ impl VulkanRasterPipeline {
         unsafe {
             device.raw().destroy_pipeline(self.raw, None);
         }
-        self.device = None;
         self.raw = vk::Pipeline::null();
     }
 }

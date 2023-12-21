@@ -82,10 +82,12 @@ impl App {
 
         // Load image
         let img = ImageReader::open("assets/luxseed-rhi-test/lue.jpg")?.decode()?;
-        let image = sys.rhi.create_image(
-            sys.device,
-            &ImageCreateDesc::new_2d("lue.jpg", Format::R8G8B8A8_SRGB, img.width(), img.height()),
-        )?;
+        let image = sys.rhi.create_image(&ImageCreateDesc::new_2d(
+            "lue.jpg",
+            Format::R8G8B8A8_SRGB,
+            img.width(),
+            img.height(),
+        ))?;
         sys.upload_image_by_staging_buffer(
             image,
             img.to_rgba8().as_bytes(),
@@ -94,24 +96,20 @@ impl App {
         )?;
 
         // Image view
-        let image_view =
-            sys.rhi.create_image_view(sys.device, image, &ImageViewCreateDesc::default())?;
+        let image_view = sys.rhi.create_image_view(image, &ImageViewCreateDesc::default())?;
 
         // Sampler
-        let sampler = sys.rhi.create_sampler(
-            sys.device,
-            &SamplerCreateDesc {
-                mag_filter: FilterType::Linear,
-                min_filter: FilterType::Linear,
-                mipmap_mode: SamplerMipmapMode::Linear,
-                address_mode_u: SamplerAddressMode::Repeat,
-                address_mode_v: SamplerAddressMode::Repeat,
-                address_mode_w: SamplerAddressMode::Repeat,
-                mip_lod_bias: 0.0,
-                compare_op: None,
-                max_anisotropy: None,
-            },
-        )?;
+        let sampler = sys.rhi.create_sampler(&SamplerCreateDesc {
+            mag_filter: FilterType::Linear,
+            min_filter: FilterType::Linear,
+            mipmap_mode: SamplerMipmapMode::Linear,
+            address_mode_u: SamplerAddressMode::Repeat,
+            address_mode_v: SamplerAddressMode::Repeat,
+            address_mode_w: SamplerAddressMode::Repeat,
+            mip_lod_bias: 0.0,
+            compare_op: None,
+            max_anisotropy: None,
+        })?;
 
         // Vertex buffer
         let vertices = vec![
@@ -120,51 +118,41 @@ impl App {
             Vertex::new(vec2(0.5, 0.5), vec3(0.0, 0.0, 1.0), vec2(1.0, 1.0)),
             Vertex::new(vec2(-0.5, 0.5), vec3(1.0, 1.0, 1.0), vec2(0.0, 1.0)),
         ];
-        let vertex_buffer = sys.rhi.create_buffer(
-            sys.device,
-            &BufferCreateDesc {
-                name: "Triangle_Vertex",
-                size: (vertices.len() * std::mem::size_of::<Vertex>()) as u64,
-                usage: BufferUsageFlags::TRANSFER_DST | BufferUsageFlags::VERTEX_BUFFER,
-                memory: MemoryLocation::GpuOnly,
-                initial_data: None,
-            },
-        )?;
+        let vertex_buffer = sys.rhi.create_buffer(&BufferCreateDesc {
+            name: "Triangle_Vertex",
+            size: (vertices.len() * std::mem::size_of::<Vertex>()) as u64,
+            usage: BufferUsageFlags::TRANSFER_DST | BufferUsageFlags::VERTEX_BUFFER,
+            memory: MemoryLocation::GpuOnly,
+            initial_data: None,
+        })?;
         sys.upload_buffer_by_staging_buffer(vertex_buffer, as_byte_slice_unchecked(&vertices))?;
 
         // Index buffer
         let indices: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
-        let index_buffer = sys.rhi.create_buffer(
-            sys.device,
-            &BufferCreateDesc {
-                name: "Triangle_Index",
-                size: (indices.len() * std::mem::size_of::<u16>()) as u64,
-                usage: BufferUsageFlags::TRANSFER_DST | BufferUsageFlags::INDEX_BUFFER,
-                memory: MemoryLocation::GpuOnly,
-                initial_data: None,
-            },
-        )?;
+        let index_buffer = sys.rhi.create_buffer(&BufferCreateDesc {
+            name: "Triangle_Index",
+            size: (indices.len() * std::mem::size_of::<u16>()) as u64,
+            usage: BufferUsageFlags::TRANSFER_DST | BufferUsageFlags::INDEX_BUFFER,
+            memory: MemoryLocation::GpuOnly,
+            initial_data: None,
+        })?;
         sys.upload_buffer_by_staging_buffer(index_buffer, as_byte_slice_unchecked(&indices))?;
 
         // UBOs
         let mut uniform_buffers = Vec::new();
         for _ in 0..sys.max_frames_in_flight {
-            let ub = sys.rhi.create_buffer(
-                sys.device,
-                &BufferCreateDesc {
-                    name: "Triangle_UBO",
-                    size: std::mem::size_of::<UniformBufferObject>() as u64,
-                    usage: BufferUsageFlags::UNIFORM_BUFFER,
-                    memory: MemoryLocation::CpuToGpu,
-                    initial_data: None,
-                },
-            )?;
+            let ub = sys.rhi.create_buffer(&BufferCreateDesc {
+                name: "Triangle_UBO",
+                size: std::mem::size_of::<UniformBufferObject>() as u64,
+                usage: BufferUsageFlags::UNIFORM_BUFFER,
+                memory: MemoryLocation::CpuToGpu,
+                initial_data: None,
+            })?;
             uniform_buffers.push(ub);
         }
 
         // Descriptor set layout
         let descriptor_set_layout = sys.rhi.create_descriptor_set_layout(
-            sys.device,
             &DescriptorSetLayoutCreateDesc::new()
                 .add_binding_info(DescriptorBindingInfo {
                     index: 0,
@@ -181,58 +169,51 @@ impl App {
         )?;
 
         // Descriptor pool
-        let descriptor_pool = sys.rhi.create_descriptor_pool(
-            sys.device,
-            &DescriptorPoolCreateDesc {
-                max_sets: sys.max_frames_in_flight as u32,
-                pool_sizes: &[
-                    DescriptorPoolSize {
-                        descriptor_type: DescriptorType::UniformBuffer,
-                        descriptor_count: sys.max_frames_in_flight as u32,
-                    },
-                    DescriptorPoolSize {
-                        descriptor_type: DescriptorType::CombinedImageSampler,
-                        descriptor_count: sys.max_frames_in_flight as u32,
-                    },
-                ],
-            },
-        )?;
+        let descriptor_pool = sys.rhi.create_descriptor_pool(&DescriptorPoolCreateDesc {
+            max_sets: sys.max_frames_in_flight as u32,
+            pool_sizes: &[
+                DescriptorPoolSize {
+                    descriptor_type: DescriptorType::UniformBuffer,
+                    descriptor_count: sys.max_frames_in_flight as u32,
+                },
+                DescriptorPoolSize {
+                    descriptor_type: DescriptorType::CombinedImageSampler,
+                    descriptor_count: sys.max_frames_in_flight as u32,
+                },
+            ],
+        })?;
 
         // Pipeline layout
-        let pipeline_layout = sys.rhi.create_pipeline_layout(
-            sys.device,
-            &PipelineLayoutCreateDesc { descriptor_set_layouts: &[descriptor_set_layout] },
-        )?;
+        let pipeline_layout = sys.rhi.create_pipeline_layout(&PipelineLayoutCreateDesc {
+            descriptor_set_layouts: &[descriptor_set_layout],
+        })?;
 
         // Pipeline
         let pipeline = sys
             .rhi
-            .create_raster_pipeline(
-                sys.device,
-                &RasterPipelineCreateDesc {
-                    vertex_input_bindings: Some(&[VertexInputBinding {
-                        stride: std::mem::size_of::<Vertex>(),
-                        input_rate: VertexInputRate::Vertex,
-                        attributes: &[
-                            VertexInputAttribute { offset: 0, format: Format::R32G32_SFLOAT },
-                            VertexInputAttribute {
-                                offset: size_of::<Vec2>(),
-                                format: Format::R32G32B32_SFLOAT,
-                            },
-                            VertexInputAttribute {
-                                offset: (size_of::<Vec2>() + size_of::<Vec3>()),
-                                format: Format::R32G32_SFLOAT,
-                            },
-                        ],
-                    }]),
-                    shader_stages: &[vs, fs],
-                    render_pass_output: sys.swapchain_output,
-                    blend_states: &[BlendState::default()],
-                    raster_state: RasterState::default(),
-                    depth_state: DepthState::default(),
-                    pipeline_layout,
-                },
-            )
+            .create_raster_pipeline(&RasterPipelineCreateDesc {
+                vertex_input_bindings: Some(&[VertexInputBinding {
+                    stride: std::mem::size_of::<Vertex>(),
+                    input_rate: VertexInputRate::Vertex,
+                    attributes: &[
+                        VertexInputAttribute { offset: 0, format: Format::R32G32_SFLOAT },
+                        VertexInputAttribute {
+                            offset: size_of::<Vec2>(),
+                            format: Format::R32G32B32_SFLOAT,
+                        },
+                        VertexInputAttribute {
+                            offset: (size_of::<Vec2>() + size_of::<Vec3>()),
+                            format: Format::R32G32_SFLOAT,
+                        },
+                    ],
+                }]),
+                shader_stages: &[vs, fs],
+                render_pass_output: sys.swapchain_output,
+                blend_states: &[BlendState::default()],
+                raster_state: RasterState::default(),
+                depth_state: DepthState::default(),
+                pipeline_layout,
+            })
             .unwrap();
 
         let mut command_buffers = Vec::new();
@@ -342,7 +323,7 @@ impl App {
     }
 
     pub fn destroy(&mut self) {
-        self.sys.rhi.wait_idle(self.sys.device).unwrap();
+        self.sys.rhi.device_wait_idle().unwrap();
 
         self.sys.rhi.destroy_image(self.image).unwrap();
         self.sys.rhi.destroy_sampler(self.sampler).unwrap();

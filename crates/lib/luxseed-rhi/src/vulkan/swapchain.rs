@@ -5,9 +5,10 @@ use ash::{
 };
 
 use crate::{
-    define::{Device, Surface, Swapchain, SwapchainCreation, Image},
+    define::{Image, Surface, Swapchain, SwapchainCreateDesc},
+    enums::QueueType,
     impl_handle,
-    pool::{Handle, Handled, Pool},
+    pool::{Handle, Pool},
     vulkan::{device::VulkanQueue, surface::VulkanSurface},
 };
 
@@ -22,7 +23,6 @@ use super::{
 pub struct VulkanSwapchain {
     pub handle: Option<Handle<Swapchain>>,
     pub raw: vk::SwapchainKHR,
-    pub device: Option<Handle<Device>>,
     pub surface: Option<Handle<Surface>>,
     pub loader: Option<khr::Swapchain>,
     pub surface_format: SurfaceFormatKHR,
@@ -36,16 +36,18 @@ impl VulkanSwapchain {
         &mut self,
         instance: &VulkanInstance,
         device: &VulkanDevice,
-        surface: &VulkanSurface,
-        queue: &VulkanQueue,
-        desc: SwapchainCreation,
+        desc: SwapchainCreateDesc,
+        p_surface: &Pool<VulkanSurface>,
+        p_queue: &Pool<VulkanQueue>,
         p_texture: &mut Pool<VulkanImage>,
     ) -> Result<()> {
-        let adapter = device.adapter.as_ref().context("Adapter in none")?;
+        let surface: &VulkanSurface = p_surface.get(desc.surface).context("Surface not found")?;
+        let queue: &VulkanQueue =
+            p_queue.get(device.get_queue(QueueType::Graphics)?).context("Queue not found")?;
 
         let surface_supported = unsafe {
             surface.loader.as_ref().unwrap().get_physical_device_surface_support(
-                adapter.raw,
+                device.get_adapter().raw,
                 queue.family_index,
                 surface.raw,
             )?
@@ -59,7 +61,7 @@ impl VulkanSwapchain {
                 .loader
                 .as_ref()
                 .unwrap()
-                .get_physical_device_surface_formats(adapter.raw, surface.raw)?
+                .get_physical_device_surface_formats(device.get_adapter().raw, surface.raw)?
         };
         let mut surface_format = SurfaceFormatKHR {
             format: vk::Format::B8G8R8A8_UNORM,
@@ -77,7 +79,7 @@ impl VulkanSwapchain {
                 .loader
                 .as_ref()
                 .unwrap()
-                .get_physical_device_surface_capabilities(adapter.raw, surface.raw)?
+                .get_physical_device_surface_capabilities(device.get_adapter().raw, surface.raw)?
         };
 
         let pre_transform = if surface_capabilities
@@ -110,7 +112,7 @@ impl VulkanSwapchain {
                 .loader
                 .as_ref()
                 .unwrap()
-                .get_physical_device_surface_present_modes(adapter.raw, surface.raw)
+                .get_physical_device_surface_present_modes(device.get_adapter().raw, surface.raw)
         }?;
 
         let present_mode = present_mode_preference
@@ -139,7 +141,6 @@ impl VulkanSwapchain {
         let mut images = Vec::new();
         for raw_image in raw_images.iter() {
             let item = p_texture.malloc();
-            item.1.device = device.get_handle();
             item.1.raw = *raw_image;
             item.1.desc = VulkanImageDesc {
                 format: surface_format.format,
@@ -152,7 +153,6 @@ impl VulkanSwapchain {
         }
 
         self.raw = raw;
-        self.device = device.get_handle();
         self.loader = Some(loader);
         self.surface = Some(desc.surface);
         self.back_buffers = images;
@@ -191,7 +191,6 @@ impl VulkanSwapchain {
             }
         }
         self.raw = vk::SwapchainKHR::null();
-        self.device = None;
         self.surface = None;
         self.loader = None;
         self.back_buffers.clear();

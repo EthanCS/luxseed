@@ -2,9 +2,9 @@ use anyhow::{Context, Ok};
 use ash::vk::{self};
 
 use crate::{
-    define::{Device, Framebuffer, FramebufferCreateDesc},
+    define::{Framebuffer, FramebufferCreateDesc},
     impl_handle,
-    pool::{Handle, Handled, Pool},
+    pool::{Handle, Pool},
     MAX_RENDER_TARGETS,
 };
 
@@ -17,7 +17,6 @@ use super::{
 pub struct VulkanFramebuffer {
     pub handle: Option<Handle<Framebuffer>>,
     pub raw: vk::Framebuffer,
-    pub device: Option<Handle<Device>>,
     pub desc: VulkanFramebufferDesc,
 }
 impl_handle!(VulkanFramebuffer, Framebuffer, handle);
@@ -30,7 +29,6 @@ impl VulkanFramebuffer {
         desc: VulkanFramebufferDesc,
     ) {
         self.raw = raw;
-        self.device = device.get_handle();
         self.desc = desc;
     }
 

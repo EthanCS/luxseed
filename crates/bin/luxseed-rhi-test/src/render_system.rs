@@ -1,13 +1,14 @@
 extern crate shaderc;
 
 use anyhow::{self, Ok, Result};
-use luxseed_rhi::{define::*, enums::*, flag::*, pool::Handle, rhi_create, RHI};
+use luxseed_rhi::{
+    create_render_backend, define::*, enums::*, flag::*, pool::Handle, RenderBackend,
+};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::window::Window;
 
 pub struct RenderSystem {
-    pub rhi: Box<dyn RHI>,
-    pub device: Handle<Device>,
+    pub rhi: Box<dyn RenderBackend>,
     pub surface: Handle<Surface>,
     pub graphics_queue: Handle<Queue>,
 
@@ -28,33 +29,33 @@ pub struct RenderSystem {
 
 impl RenderSystem {
     pub fn create(window: &Window) -> Result<Self> {
-        let mut rhi = rhi_create(
+        let mut rhi = create_render_backend(
             BackendType::Vulkan,
-            RHICreation {
+            RenderBackendCreateDesc {
                 app_name: "Luxseed Vulkan - Hello World",
                 app_version: 0,
                 enable_debugging: true,
                 raw_display_handle: window.raw_display_handle(),
             },
         )?;
-        let format = Format::B8G8R8A8_SRGB;
-        let device = rhi.create_device(0)?;
+
+        rhi.create_device(0)?;
+
         let surface = rhi.create_surface(SurfaceCreateDesc {
             raw_display_handle: window.raw_display_handle(),
             raw_window_handle: window.raw_window_handle(),
         })?;
-        let swapchain = rhi.create_swapchain(
-            device,
-            SwapchainCreation {
-                width: window.inner_size().width,
-                height: window.inner_size().height,
-                surface: surface,
-                vsync: true,
-                format,
-            },
-        )?;
+
+        let format = Format::B8G8R8A8_SRGB;
+        let swapchain = rhi.create_swapchain(SwapchainCreateDesc {
+            width: window.inner_size().width,
+            height: window.inner_size().height,
+            surface: surface,
+            vsync: true,
+            format,
+        })?;
         let max_frames_in_flight = rhi.get_swapchain_image_count(swapchain)? as usize;
-        let graphics_queue = rhi.get_queue(device, QueueType::Graphics)?;
+        let graphics_queue = rhi.get_queue(QueueType::Graphics)?;
         let swapchain_output = RenderPassOutput::builder()
             .add_color(
                 format,
@@ -63,7 +64,7 @@ impl RenderSystem {
                 SampleCount::Sample1,
             )
             .build();
-        let swapchain_render_pass = rhi.create_render_pass(device, &swapchain_output)?;
+        let swapchain_render_pass = rhi.create_render_pass(&swapchain_output)?;
 
         let mut in_flight_fences = Vec::new();
         let mut image_availables = Vec::new();
@@ -71,24 +72,20 @@ impl RenderSystem {
         let mut swapchain_framebuffers = Vec::new();
 
         for i in 0..max_frames_in_flight {
-            in_flight_fences.push(rhi.create_fence(device, true)?);
-            image_availables.push(rhi.create_semaphore(device)?);
-            render_finisheds.push(rhi.create_semaphore(device)?);
+            in_flight_fences.push(rhi.create_fence(true)?);
+            image_availables.push(rhi.create_semaphore()?);
+            render_finisheds.push(rhi.create_semaphore()?);
 
             let back_buffer = rhi.get_swapchain_back_buffer(swapchain, i as usize)?;
             let view = rhi.create_image_view(
-                device,
                 back_buffer,
                 &ImageViewCreateDesc { ..ImageViewCreateDesc::default() },
             )?;
-            let fb = rhi.create_framebuffer(
-                device,
-                &FramebufferCreateDesc {
-                    render_pass: swapchain_render_pass,
-                    color_views: &[view],
-                    depth_stencil_view: None,
-                },
-            )?;
+            let fb = rhi.create_framebuffer(&FramebufferCreateDesc {
+                render_pass: swapchain_render_pass,
+                color_views: &[view],
+                depth_stencil_view: None,
+            })?;
             swapchain_framebuffers.push(fb);
         }
 
@@ -96,7 +93,6 @@ impl RenderSystem {
 
         Ok(Self {
             rhi,
-            device,
             surface,
             graphics_queue,
 
@@ -179,16 +175,13 @@ impl RenderSystem {
         height: u32,
     ) -> Result<()> {
         let size = data.len() as u64;
-        let staging_buffer = self.rhi.create_buffer(
-            self.device,
-            &BufferCreateDesc {
-                name: "Staging Buffer",
-                size: size,
-                usage: BufferUsageFlags::TRANSFER_SRC,
-                memory: MemoryLocation::CpuToGpu,
-                initial_data: Some(data),
-            },
-        )?;
+        let staging_buffer = self.rhi.create_buffer(&BufferCreateDesc {
+            name: "Staging Buffer",
+            size: size,
+            usage: BufferUsageFlags::TRANSFER_SRC,
+            memory: MemoryLocation::CpuToGpu,
+            initial_data: Some(data),
+        })?;
         self.transition_image_layout(
             image,
             ImageLayout::Undefined,
@@ -212,16 +205,13 @@ impl RenderSystem {
         data: &[u8],
     ) -> Result<()> {
         let size = data.len() as u64;
-        let staging_buffer = self.rhi.create_buffer(
-            self.device,
-            &BufferCreateDesc {
-                name: "Staging Buffer",
-                size: size,
-                usage: BufferUsageFlags::TRANSFER_SRC,
-                memory: MemoryLocation::CpuToGpu,
-                initial_data: Some(data),
-            },
-        )?;
+        let staging_buffer = self.rhi.create_buffer(&BufferCreateDesc {
+            name: "Staging Buffer",
+            size: size,
+            usage: BufferUsageFlags::TRANSFER_SRC,
+            memory: MemoryLocation::CpuToGpu,
+            initial_data: Some(data),
+        })?;
         self.copy_buffer(staging_buffer, buffer, size)?;
         self.rhi.destroy_buffer(staging_buffer)?;
         Ok(())
@@ -353,29 +343,26 @@ impl RenderSystem {
         entry: &str,
     ) -> Result<Handle<Shader>> {
         let compiler = shaderc::Compiler::new().unwrap();
-        self.rhi.create_shader_module(
-            self.device,
-            &ShaderModuleCreation {
-                name,
-                code: compiler
-                    .compile_into_spirv(
-                        code,
-                        match stage {
-                            ShaderStageFlags::VERTEX => shaderc::ShaderKind::Vertex,
-                            ShaderStageFlags::FRAGMENT => shaderc::ShaderKind::Fragment,
-                            ShaderStageFlags::COMPUTE => shaderc::ShaderKind::Compute,
-                            _ => panic!("Unsupported shader stage"),
-                        },
-                        "shader.glsl",
-                        entry,
-                        None,
-                    )
-                    .unwrap()
-                    .as_binary(),
-                stage,
-                entry: entry,
-            },
-        )
+        self.rhi.create_shader_module(&ShaderModuleCreation {
+            name,
+            code: compiler
+                .compile_into_spirv(
+                    code,
+                    match stage {
+                        ShaderStageFlags::VERTEX => shaderc::ShaderKind::Vertex,
+                        ShaderStageFlags::FRAGMENT => shaderc::ShaderKind::Fragment,
+                        ShaderStageFlags::COMPUTE => shaderc::ShaderKind::Compute,
+                        _ => panic!("Unsupported shader stage"),
+                    },
+                    "shader.glsl",
+                    entry,
+                    None,
+                )
+                .unwrap()
+                .as_binary(),
+            stage,
+            entry: entry,
+        })
     }
 
     pub fn cleanup_swapchain(&mut self) -> Result<()> {
@@ -387,37 +374,30 @@ impl RenderSystem {
     }
 
     pub fn recreate_swapchain(&mut self, width: u32, height: u32) -> Result<()> {
-        self.rhi.wait_idle(self.device)?;
+        self.rhi.device_wait_idle()?;
 
         self.cleanup_swapchain()?;
 
-        self.swapchain = self.rhi.create_swapchain(
-            self.device,
-            SwapchainCreation {
-                width: width,
-                height: height,
-                surface: self.surface,
-                vsync: true,
-                format: Format::B8G8R8A8_SRGB,
-            },
-        )?;
+        self.swapchain = self.rhi.create_swapchain(SwapchainCreateDesc {
+            width: width,
+            height: height,
+            surface: self.surface,
+            vsync: true,
+            format: Format::B8G8R8A8_SRGB,
+        })?;
 
         self.swapchain_framebuffers.clear();
         for i in 0..self.max_frames_in_flight {
             let back_buffer = self.rhi.get_swapchain_back_buffer(self.swapchain, i as usize)?;
             let view = self.rhi.create_image_view(
-                self.device,
                 back_buffer,
                 &ImageViewCreateDesc { ..ImageViewCreateDesc::default() },
             )?;
-            let fb = self.rhi.create_framebuffer(
-                self.device,
-                &FramebufferCreateDesc {
-                    render_pass: self.swapchain_render_pass,
-                    color_views: &[view],
-                    depth_stencil_view: None,
-                },
-            )?;
+            let fb = self.rhi.create_framebuffer(&FramebufferCreateDesc {
+                render_pass: self.swapchain_render_pass,
+                color_views: &[view],
+                depth_stencil_view: None,
+            })?;
             self.swapchain_framebuffers.push(fb);
         }
 
@@ -437,7 +417,7 @@ impl RenderSystem {
 
         self.rhi.destroy_render_pass(self.swapchain_render_pass)?;
         self.rhi.destroy_surface(self.surface)?;
-        self.rhi.destroy_device(self.device)?;
+        self.rhi.destroy_device()?;
         Ok(())
     }
 }

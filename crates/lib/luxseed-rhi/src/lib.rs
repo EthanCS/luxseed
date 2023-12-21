@@ -15,36 +15,50 @@ use vulkan::VulkanRHI;
 pub const MAX_RENDER_TARGETS: usize = 8;
 pub const MAX_SHADER_STAGES: usize = 5;
 
-pub fn rhi_create(backend: BackendType, desc: RHICreation) -> Result<Box<dyn RHI>> {
+pub fn create_render_backend(
+    backend: BackendType,
+    desc: RenderBackendCreateDesc,
+) -> Result<Box<dyn RenderBackend>> {
     match backend {
         BackendType::Vulkan => Ok(Box::new(VulkanRHI::new(desc)?)),
         _ => anyhow::bail!("Unsupported RHI backend type"),
     }
 }
 
-pub trait RHI {
-    // Info
+/// The RHI trait defines the interface for a rendering hardware abstraction layer.
+pub trait RenderBackend {
+    /// Gets the type of the backend.
+    ///
+    /// # Returns
+    ///
+    /// The type of the backend.
+    fn get_type(&self) -> BackendType;
+
+    /// Enumerates the adapter infos.
+    ///
+    /// # Returns
+    ///
+    /// A slice of adapter infos.
     fn enumerate_adapter_infos(&self) -> &[AdapterInfo];
 
-    // Device
-    fn create_device(&mut self, adapter_index: usize) -> Result<Handle<Device>>;
-    fn destroy_device(&mut self, device: Handle<Device>) -> Result<()>;
-    fn wait_idle(&self, device: Handle<Device>) -> Result<()>;
+    fn is_device_created(&self) -> bool;
+    fn create_device(&mut self, adapter_index: usize) -> Result<()>;
+    fn destroy_device(&mut self) -> Result<()>;
+    fn device_wait_idle(&self) -> Result<()>;
 
     // Fence
-    fn create_fence(&mut self, device: Handle<Device>, signal: bool) -> Result<Handle<Fence>>;
+    fn create_fence(&mut self, signal: bool) -> Result<Handle<Fence>>;
     fn destroy_fence(&mut self, handle: Handle<Fence>) -> Result<()>;
     fn wait_for_fences(&self, fences: &[Handle<Fence>], wait_all: bool, timeout: u64)
         -> Result<()>;
     fn reset_fences(&self, fences: &[Handle<Fence>]) -> Result<()>;
 
     // Semaphore
-    fn create_semaphore(&mut self, device: Handle<Device>) -> Result<Handle<Semaphore>>;
+    fn create_semaphore(&mut self) -> Result<Handle<Semaphore>>;
     fn destroy_semaphore(&mut self, handle: Handle<Semaphore>) -> Result<()>;
 
     // Queue
-    fn get_queue(&mut self, device: Handle<Device>, queue_type: QueueType)
-        -> Result<Handle<Queue>>;
+    fn get_queue(&self, queue_type: QueueType) -> Result<Handle<Queue>>;
     fn queue_submit(&self, handle: Handle<Queue>, desc: &QueueSubmitDesc) -> Result<()>;
 
     /// Presents the swapchain.
@@ -65,12 +79,16 @@ pub trait RHI {
     fn create_surface(&mut self, desc: SurfaceCreateDesc) -> Result<Handle<Surface>>;
     fn destroy_surface(&mut self, surface: Handle<Surface>) -> Result<()>;
 
-    // Swapchain
-    fn create_swapchain(
-        &mut self,
-        device: Handle<Device>,
-        creation: SwapchainCreation,
-    ) -> Result<Handle<Swapchain>>;
+    /// Creates a new swapchain with the given description and returns a handle to it.
+    ///
+    /// # Arguments
+    ///
+    /// * `desc` - A reference to the description of the swapchain to create.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing a handle to the created swapchain if successful, or an error message otherwise.
+    fn create_swapchain(&mut self, desc: SwapchainCreateDesc) -> Result<Handle<Swapchain>>;
 
     /// Acquires the next image from the swapchain.
     ///
@@ -92,23 +110,33 @@ pub trait RHI {
         fence: Option<Handle<Fence>>,
     ) -> Result<(usize, bool)>;
 
+    /// Gets the back buffer of the swapchain.
+    ///
+    /// # Arguments
+    ///
+    /// * `handle` - A handle to the swapchain.
+    /// * `index` - The index of the back buffer.
+    ///
+    /// # Returns
+    ///
+    /// A handle to the back buffer.
     fn get_swapchain_back_buffer(
         &self,
         handle: Handle<Swapchain>,
         index: usize,
     ) -> Result<Handle<Image>>;
+
     fn get_swapchain_image_count(&self, handle: Handle<Swapchain>) -> Result<u8>;
+
     fn destroy_swapchain(&mut self, swapchain: Handle<Swapchain>) -> Result<()>;
 
     fn create_descriptor_set_layout(
         &mut self,
-        device: Handle<Device>,
         desc: &DescriptorSetLayoutCreateDesc,
     ) -> Result<Handle<DescriptorSetLayout>>;
     fn destroy_descriptor_set_layout(&mut self, handle: Handle<DescriptorSetLayout>) -> Result<()>;
     fn create_descriptor_pool(
         &mut self,
-        device: Handle<Device>,
         desc: &DescriptorPoolCreateDesc,
     ) -> Result<Handle<DescriptorPool>>;
     fn destroy_descriptor_pool(&mut self, handle: Handle<DescriptorPool>) -> Result<()>;
@@ -121,42 +149,24 @@ pub trait RHI {
     fn destroy_descriptor_sets(&mut self, sets: &[Handle<DescriptorSet>]) -> Result<()>;
 
     // Image / Image View
-    fn create_image(
-        &mut self,
-        device: Handle<Device>,
-        desc: &ImageCreateDesc,
-    ) -> Result<Handle<Image>>;
+    fn create_image(&mut self, desc: &ImageCreateDesc) -> Result<Handle<Image>>;
     fn destroy_image(&mut self, handle: Handle<Image>) -> Result<()>;
     fn create_image_view(
         &mut self,
-        device: Handle<Device>,
         image: Handle<Image>,
         desc: &ImageViewCreateDesc,
     ) -> Result<Handle<ImageView>>;
     fn destroy_image_view(&mut self, handle: Handle<ImageView>) -> Result<()>;
 
-    fn create_sampler(
-        &mut self,
-        device: Handle<Device>,
-        desc: &SamplerCreateDesc,
-    ) -> Result<Handle<Sampler>>;
-
+    fn create_sampler(&mut self, desc: &SamplerCreateDesc) -> Result<Handle<Sampler>>;
     fn destroy_sampler(&mut self, handle: Handle<Sampler>) -> Result<()>;
 
     // Shader
-    fn create_shader_module(
-        &mut self,
-        device: Handle<Device>,
-        desc: &ShaderModuleCreation,
-    ) -> Result<Handle<Shader>>;
+    fn create_shader_module(&mut self, desc: &ShaderModuleCreation) -> Result<Handle<Shader>>;
     fn destroy_shader_module(&mut self, shader_module: Handle<Shader>) -> Result<()>;
 
     // Buffer
-    fn create_buffer(
-        &mut self,
-        device: Handle<Device>,
-        desc: &BufferCreateDesc,
-    ) -> Result<Handle<Buffer>>;
+    fn create_buffer(&mut self, desc: &BufferCreateDesc) -> Result<Handle<Buffer>>;
 
     fn destroy_buffer(&mut self, buffer: Handle<Buffer>) -> Result<()>;
 
@@ -164,7 +174,6 @@ pub trait RHI {
 
     fn create_pipeline_layout(
         &mut self,
-        device: Handle<Device>,
         desc: &PipelineLayoutCreateDesc,
     ) -> Result<Handle<PipelineLayout>>;
 
@@ -174,7 +183,6 @@ pub trait RHI {
     ///
     /// # Arguments
     ///
-    /// * `device` - A handle to the device to create the pipeline on.
     /// * `desc` - A reference to the description of the pipeline to create.
     ///
     /// # Returns
@@ -182,24 +190,18 @@ pub trait RHI {
     /// A `Result` containing a handle to the created pipeline if successful, or an error message otherwise.
     fn create_raster_pipeline(
         &mut self,
-        device: Handle<Device>,
         desc: &RasterPipelineCreateDesc,
     ) -> Result<Handle<RasterPipeline>>;
 
     fn destroy_raster_pipeline(&mut self, raster_pipeline: Handle<RasterPipeline>) -> Result<()>;
 
     // Render pass
-    fn create_render_pass(
-        &mut self,
-        device: Handle<Device>,
-        output: &RenderPassOutput,
-    ) -> Result<Handle<RenderPass>>;
+    fn create_render_pass(&mut self, output: &RenderPassOutput) -> Result<Handle<RenderPass>>;
     fn destroy_render_pass(&mut self, handle: Handle<RenderPass>) -> Result<()>;
 
     // Framebuffer
     fn create_framebuffer(
         &mut self,
-        device: Handle<Device>,
         creation: &FramebufferCreateDesc,
     ) -> Result<Handle<Framebuffer>>;
     fn destroy_framebuffer(&mut self, handle: Handle<Framebuffer>) -> Result<()>;

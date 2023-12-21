@@ -16,7 +16,7 @@ pub struct AdapterInfo {
 }
 
 #[derive(Clone, Copy)]
-pub struct RHICreation<'a> {
+pub struct RenderBackendCreateDesc<'a> {
     pub enable_debugging: bool,
     pub app_name: &'a str,
     pub app_version: u32,
@@ -30,7 +30,7 @@ pub struct SurfaceCreateDesc {
 }
 
 #[derive(Clone, Copy)]
-pub struct SwapchainCreation {
+pub struct SwapchainCreateDesc {
     pub width: u32,
     pub height: u32,
     pub surface: Handle<Surface>,
@@ -576,7 +576,6 @@ macro_rules! define_rhi_resources {
 }
 
 define_rhi_resources!(
-    Device,
     Surface,
     Queue,
     Swapchain,

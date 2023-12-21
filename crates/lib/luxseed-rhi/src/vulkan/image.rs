@@ -28,7 +28,6 @@ pub struct VulkanImageDesc {
 pub struct VulkanImage {
     pub handle: Option<Handle<Image>>,
     pub raw: vk::Image,
-    pub device: Option<Handle<Device>>,
     pub desc: VulkanImageDesc,
     pub views: HashMap<VulkanImageViewDesc, Handle<ImageView>>,
     pub requirements: vk::MemoryRequirements,
@@ -71,8 +70,7 @@ impl VulkanImage {
         let raw = unsafe { device.raw().create_image(&image_info, None)? };
 
         let requirements = unsafe { device.raw().get_image_memory_requirements(raw) };
-        let allocator = device.allocator.as_mut().context("Device has not gpu allocator")?;
-        let allocation = allocator.allocate(&AllocationCreateDesc {
+        let allocation = device.get_mut_allocator().allocate(&AllocationCreateDesc {
             name: desc.name,
             requirements,
             location: gpu_allocator::MemoryLocation::GpuOnly,
@@ -85,7 +83,6 @@ impl VulkanImage {
 
         self.raw = raw;
         self.requirements = requirements;
-        self.device = device.get_handle();
         self.desc = image_desc;
         self.views.clear();
         self.allocation = Some(allocation);
@@ -93,18 +90,16 @@ impl VulkanImage {
     }
 
     pub fn destroy(&mut self, device: &mut VulkanDevice) -> Result<()> {
-        if let Some(allocator) = device.allocator.as_mut() {
-            if let Some(allocation) = self.allocation.take() {
-                allocator.free(allocation)?;
-            }
+        if let Some(allocation) = self.allocation.take() {
+            device.get_mut_allocator().free(allocation)?;
         }
+
         unsafe {
             device.raw().destroy_image(self.raw, None);
         }
         self.views.clear();
         self.raw = vk::Image::null();
         self.requirements = vk::MemoryRequirements::default();
-        self.device = None;
         self.desc = Default::default();
         self.allocation = None;
         Ok(())
@@ -164,7 +159,6 @@ impl VulkanImageViewDesc {
 pub struct VulkanImageView {
     pub handle: Option<Handle<ImageView>>,
     pub raw: vk::ImageView,
-    pub device: Option<Handle<Device>>,
     pub texture: Option<Handle<Image>>,
     pub desc: VulkanImageViewDesc,
 }
@@ -200,7 +194,6 @@ impl VulkanImageView {
             );
         self.texture = texture.get_handle();
         self.desc = *desc;
-        self.device = device.get_handle();
         self.raw = unsafe { device.raw().create_image_view(&view_info, None)? };
         Ok(())
     }
@@ -209,7 +202,6 @@ impl VulkanImageView {
         unsafe {
             device.raw().destroy_image_view(self.raw, None);
         }
-        self.device = None;
         self.texture = None;
         self.desc = Default::default();
         self.raw = vk::ImageView::null();
@@ -220,7 +212,6 @@ impl VulkanImageView {
 pub struct VulkanSampler {
     pub handle: Option<Handle<Sampler>>,
     pub raw: vk::Sampler,
-    pub device: Option<Handle<Device>>,
 }
 impl_handle!(VulkanSampler, Sampler, handle);
 
@@ -231,8 +222,7 @@ impl VulkanSampler {
             compare_op = op.into();
         }
 
-        let device_max_anisotropy =
-            device.adapter.as_ref().unwrap().properties.limits.max_sampler_anisotropy;
+        let device_max_anisotropy = device.get_adapter().properties.limits.max_sampler_anisotropy;
         let mut max_anisotropy = desc.max_anisotropy.unwrap_or(1.0);
         max_anisotropy = max_anisotropy.min(device_max_anisotropy);
 
@@ -254,7 +244,6 @@ impl VulkanSampler {
             .unnormalized_coordinates(false);
 
         self.raw = unsafe { device.raw().create_sampler(&sampler_info, None)? };
-        self.device = device.get_handle();
         Ok(())
     }
 

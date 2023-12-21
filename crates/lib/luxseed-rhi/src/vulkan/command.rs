@@ -24,7 +24,6 @@ use super::{
 pub struct VulkanCommandPool {
     pub handle: Option<Handle<CommandPool>>,
     pub raw: vk::CommandPool,
-    pub device: Option<Handle<Device>>,
 }
 impl_handle!(VulkanCommandPool, CommandPool, handle);
 
@@ -39,7 +38,6 @@ impl VulkanCommandPool {
                 None,
             )?
         };
-        self.device = d.get_handle();
         self.raw = raw;
         Ok(())
     }
@@ -48,10 +46,10 @@ impl VulkanCommandPool {
         unsafe {
             d.raw().destroy_command_pool(self.raw, None);
         }
-        self.device = None;
         self.raw = vk::CommandPool::null();
     }
 
+    #[inline]
     pub fn reset(&self, device: &VulkanDevice) -> anyhow::Result<()> {
         unsafe {
             device.raw().reset_command_pool(self.raw, vk::CommandPoolResetFlags::empty())?;
@@ -64,7 +62,6 @@ impl VulkanCommandPool {
 pub struct VulkanCommandBuffer {
     pub handle: Option<Handle<CommandBuffer>>,
     pub raw: vk::CommandBuffer,
-    pub device: Option<Handle<Device>>,
     pub pool: Option<Handle<CommandPool>>,
     cache_render_pass: Option<Handle<RenderPass>>,
     cache_framebuffer: Option<Handle<Framebuffer>>,
@@ -88,7 +85,6 @@ impl VulkanCommandBuffer {
             )?
         }[0];
         self.raw = raw;
-        self.device = device.get_handle();
         self.pool = pool.get_handle();
         self.cache_framebuffer = None;
         self.cache_render_pass = None;
@@ -424,7 +420,6 @@ impl VulkanCommandBuffer {
             device.raw().free_command_buffers(pool.raw, &[self.raw]);
         }
         self.raw = vk::CommandBuffer::null();
-        self.device = None;
         self.pool = None;
         self.cache_framebuffer = None;
         self.cache_render_pass = None;

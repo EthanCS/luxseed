@@ -17,7 +17,11 @@ pub struct VulkanSurface {
 impl_handle!(VulkanSurface, Surface, handle);
 
 impl VulkanSurface {
-    pub fn init(&mut self, instance: &VulkanInstance, desc: SurfaceCreateDesc) -> anyhow::Result<()> {
+    pub fn init(
+        &mut self,
+        instance: &VulkanInstance,
+        desc: SurfaceCreateDesc,
+    ) -> anyhow::Result<()> {
         self.raw = unsafe {
             ash_window::create_surface(
                 &instance.entry,

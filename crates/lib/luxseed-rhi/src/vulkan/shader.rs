@@ -2,9 +2,9 @@ use ash::vk;
 use std::ffi::CString;
 
 use crate::{
-    define::{Device, Shader, ShaderModuleCreation},
+    define::{Shader, ShaderModuleCreation},
     impl_handle,
-    pool::{Handle, Handled},
+    pool::Handle,
 };
 
 use super::device::VulkanDevice;
@@ -15,7 +15,6 @@ pub struct VulkanShader {
     pub handle: Option<Handle<Shader>>,
     pub stage: vk::ShaderStageFlags,
     pub entry: CString,
-    pub device: Option<Handle<Device>>,
 }
 impl_handle!(VulkanShader, Shader, handle);
 
@@ -29,7 +28,6 @@ impl VulkanShader {
         self.raw = unsafe { device.raw().create_shader_module(&create_info, None)? };
         self.stage = creation.stage.into();
         self.entry = CString::new(creation.entry)?;
-        self.device = device.get_handle();
         Ok(())
     }
 
@@ -39,6 +37,5 @@ impl VulkanShader {
         }
         self.raw = vk::ShaderModule::null();
         self.stage = vk::ShaderStageFlags::empty();
-        self.device = None;
     }
 }

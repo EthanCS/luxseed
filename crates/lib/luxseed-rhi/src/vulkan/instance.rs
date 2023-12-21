@@ -1,4 +1,4 @@
-use crate::define::RHICreation;
+use crate::define::RenderBackendCreateDesc;
 use ash::{extensions::ext::DebugUtils, vk};
 use log::error;
 use raw_window_handle::RawDisplayHandle;
@@ -16,7 +16,7 @@ pub struct VulkanInstance {
 }
 
 impl VulkanInstance {
-    pub fn new(creation: RHICreation) -> anyhow::Result<Self> {
+    pub fn new(creation: RenderBackendCreateDesc) -> anyhow::Result<Self> {
         let entry = ash::Entry::linked();
 
         let mut enable_debugging = creation.enable_debugging;

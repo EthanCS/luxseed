@@ -2,7 +2,7 @@ use anyhow::Ok;
 use ash::vk::{self};
 
 use crate::{
-    define::{Device, Fence, Semaphore},
+    define::{Fence, Semaphore},
     impl_handle,
     pool::{Handle, Handled},
 };
@@ -13,7 +13,6 @@ use super::device::VulkanDevice;
 pub struct VulkanFence {
     pub handle: Option<Handle<Fence>>,
     pub raw: vk::Fence,
-    pub device: Option<Handle<Device>>,
 }
 impl_handle!(VulkanFence, Fence, handle);
 
@@ -27,7 +26,6 @@ impl VulkanFence {
             })
             .build();
         self.raw = unsafe { device.raw().create_fence(&create_info, None)? };
-        self.device = device.get_handle();
         Ok(())
     }
 
@@ -43,7 +41,6 @@ impl VulkanFence {
 pub struct VulkanSemaphore {
     pub handle: Option<Handle<Semaphore>>,
     pub raw: vk::Semaphore,
-    pub device: Option<Handle<Device>>,
 }
 impl_handle!(VulkanSemaphore, Semaphore, handle);
 
@@ -51,7 +48,6 @@ impl VulkanSemaphore {
     pub fn init(&mut self, device: &VulkanDevice) -> anyhow::Result<()> {
         let create_info = vk::SemaphoreCreateInfo::builder().build();
         self.raw = unsafe { device.raw().create_semaphore(&create_info, None)? };
-        self.device = device.get_handle();
         Ok(())
     }
 

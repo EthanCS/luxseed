@@ -2,13 +2,13 @@ use anyhow::{Context, Result};
 use ash::{extensions::khr, vk};
 use gpu_allocator::vulkan::*;
 use smallvec::SmallVec;
-use std::{collections::HashMap, ffi::CStr};
+use std::{collections::HashMap, ffi::CStr, mem::ManuallyDrop};
 
 use crate::{
     define::*,
     enums::*,
     impl_handle,
-    pool::{Handle, Handled, Pool},
+    pool::{Handle, Pool},
 };
 
 use super::{
@@ -70,28 +70,24 @@ impl AdapterInfo {
     }
 }
 
-#[derive(Default)]
 pub struct VulkanDevice {
-    pub handle: Option<Handle<Device>>,
-    raw: Option<ash::Device>,
-    pub adapter: Option<VulkanAdapter>,
-    pub graphics_queue: Option<Handle<Queue>>,
-    pub compute_queue: Option<Handle<Queue>>,
-    pub transfer_queue: Option<Handle<Queue>>,
-    pub present_queue: Option<Handle<Queue>>,
+    allocator: ManuallyDrop<Allocator>,
+    raw: ash::Device,
+    adapter: VulkanAdapter,
+    graphics_queue: Option<Handle<Queue>>,
+    compute_queue: Option<Handle<Queue>>,
+    transfer_queue: Option<Handle<Queue>>,
+    present_queue: Option<Handle<Queue>>,
     pub render_pass_cache: HashMap<VulkanRenderPassOutput, ash::vk::RenderPass>,
     pub framebuffer_cache: HashMap<VulkanFramebufferDesc, ash::vk::Framebuffer>,
-    pub allocator: Option<Allocator>,
 }
-impl_handle!(VulkanDevice, Device, handle);
 
 impl VulkanDevice {
-    pub fn init(
-        &mut self,
+    pub fn new(
         instance: &VulkanInstance,
         adapter: &VulkanAdapter,
         p_queue: &mut Pool<VulkanQueue>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<VulkanDevice> {
         // Find Queue Family
         let mut main_queue_family_index = u32::MAX;
         let mut compute_queue_family_index = u32::MAX;
@@ -194,36 +190,102 @@ impl VulkanDevice {
             buffer_device_address: true,
             allocation_sizes: Default::default(),
         };
-        self.allocator = Some(Allocator::new(&allocator_create_desc)?);
-
-        self.raw = Some(device);
-        self.adapter = Some(adapter.clone());
+        let allocator = ManuallyDrop::new(Allocator::new(&allocator_create_desc)?);
 
         // Get queue
+        let mut graphics_queue_handle = None;
+        let mut present_queue_handle = None;
+        let mut compute_queue_handle = None;
+        let mut transfer_queue_handle = None;
+
         {
             let main_queue = p_queue.malloc();
-            main_queue.1.init(&self, main_queue_family_index, 0);
-            self.graphics_queue = Some(main_queue.0);
-            self.present_queue = Some(main_queue.0);
+            main_queue.1.init(&device, main_queue_family_index, 0);
+            graphics_queue_handle = Some(main_queue.0);
+            present_queue_handle = Some(main_queue.0);
         }
 
         {
             let compute_queue = p_queue.malloc();
-            compute_queue.1.init(&self, compute_queue_family_index, compute_queue_index);
-            self.compute_queue = Some(compute_queue.0);
+            compute_queue.1.init(&device, compute_queue_family_index, compute_queue_index);
+            compute_queue_handle = Some(compute_queue.0);
         }
 
         {
             let transfer_queue = p_queue.malloc();
-            transfer_queue.1.init(&self, transfer_queue_family_index, 0);
-            self.transfer_queue = Some(transfer_queue.0);
+            transfer_queue.1.init(&device, transfer_queue_family_index, 0);
+            transfer_queue_handle = Some(transfer_queue.0);
         }
 
+        Ok(Self {
+            raw: device,
+            adapter: adapter.clone(),
+            allocator,
+            graphics_queue: graphics_queue_handle,
+            compute_queue: compute_queue_handle,
+            transfer_queue: transfer_queue_handle,
+            present_queue: present_queue_handle,
+            render_pass_cache: Default::default(),
+            framebuffer_cache: Default::default(),
+        })
+    }
+
+    #[inline]
+    pub fn raw(&self) -> &ash::Device {
+        &self.raw
+    }
+
+    #[inline]
+    pub fn get_adapter(&self) -> &VulkanAdapter {
+        &self.adapter
+    }
+
+    #[inline]
+    pub fn get_allocator(&self) -> &Allocator {
+        &self.allocator
+    }
+
+    #[inline]
+    pub fn get_mut_allocator(&mut self) -> &mut Allocator {
+        &mut self.allocator
+    }
+
+    #[inline]
+    pub fn wait_idle(&self) -> anyhow::Result<()> {
+        unsafe { self.raw().device_wait_idle()? };
         Ok(())
     }
 
-    pub fn raw(&self) -> &ash::Device {
-        self.raw.as_ref().unwrap()
+    #[inline]
+    pub fn wait_for_fences(
+        &self,
+        fences: &[Handle<Fence>],
+        wait_all: bool,
+        timeout: u64,
+        p_fence: &Pool<VulkanFence>,
+    ) -> anyhow::Result<()> {
+        let mut raw_fences = SmallVec::<[vk::Fence; 4]>::new();
+        for fence in fences {
+            raw_fences.push(p_fence.get(*fence).context("Fence not found.")?.raw);
+        }
+        unsafe { self.raw().wait_for_fences(&raw_fences, wait_all, timeout)? };
+        Ok(())
+    }
+
+    #[inline]
+    pub fn reset_fences(
+        &self,
+        fences: &[Handle<Fence>],
+        p_fence: &Pool<VulkanFence>,
+    ) -> anyhow::Result<()> {
+        let mut raw_fences = SmallVec::<[vk::Fence; 4]>::new();
+        for fence in fences {
+            raw_fences.push(p_fence.get(*fence).context("Fence not found.")?.raw);
+        }
+        unsafe {
+            self.raw().reset_fences(&raw_fences)?;
+        }
+        Ok(())
     }
 
     #[inline]
@@ -237,23 +299,14 @@ impl VulkanDevice {
     }
 
     pub fn destroy(&mut self) {
-        if let Some(allocator) = self.allocator.take() {
-            drop(allocator);
+        unsafe {
+            ManuallyDrop::drop(&mut self.allocator);
+            self.raw.destroy_device(None);
         }
-
-        if let Some(handle) = self.raw.as_ref() {
-            unsafe {
-                handle.destroy_device(None);
-            }
-        }
-
-        self.raw = None;
-        self.adapter = None;
         self.graphics_queue = None;
         self.compute_queue = None;
         self.transfer_queue = None;
         self.present_queue = None;
-        self.allocator = None;
     }
 }
 
@@ -262,26 +315,31 @@ pub struct VulkanQueue {
     pub handle: Option<Handle<Queue>>,
     pub raw: vk::Queue,
     pub family_index: u32,
-    pub device: Option<Handle<Device>>,
 }
 impl_handle!(VulkanQueue, Queue, handle);
 
 impl VulkanQueue {
-    pub fn init(&mut self, device: &VulkanDevice, queue_family_index: u32, queue_index: u32) {
-        self.raw = unsafe { device.raw().get_device_queue(queue_family_index, queue_index) };
+    #[inline]
+    pub fn init(&mut self, device: &ash::Device, queue_family_index: u32, queue_index: u32) {
+        self.raw = unsafe { device.get_device_queue(queue_family_index, queue_index) };
         self.family_index = queue_family_index;
-        self.device = device.get_handle();
+    }
+
+    #[inline]
+    pub fn wait_idle(&self, device: &ash::Device) -> anyhow::Result<()> {
+        unsafe { device.queue_wait_idle(self.raw)? };
+        Ok(())
     }
 
     pub fn submit(
         &self,
         device: &VulkanDevice,
-        submission: &QueueSubmitDesc,
+        desc: &QueueSubmitDesc,
         p_fence: &Pool<VulkanFence>,
         p_semaphore: &Pool<VulkanSemaphore>,
         p_command_buffer: &Pool<VulkanCommandBuffer>,
     ) -> anyhow::Result<()> {
-        let fence = if let Some(f) = submission.fence {
+        let fence = if let Some(f) = desc.fence {
             p_fence.get(f).context("Fence not found.")?.raw
         } else {
             ash::vk::Fence::null()
@@ -292,23 +350,23 @@ impl VulkanQueue {
         let mut stage = SmallVec::<[vk::PipelineStageFlags; 4]>::new();
         let mut signal = SmallVec::<[vk::Semaphore; 4]>::new();
 
-        for cb in submission.command_buffer.iter() {
+        for cb in desc.command_buffer.iter() {
             cbs.push(p_command_buffer.get(*cb).unwrap().raw);
         }
 
-        if let Some(wait_semaphores) = submission.wait_semaphore {
+        if let Some(wait_semaphores) = desc.wait_semaphore {
             for s in wait_semaphores {
                 wait.push(p_semaphore.get(*s).unwrap().raw);
             }
         }
 
-        if let Some(wait_dst_stage_mask) = submission.wait_stage {
+        if let Some(wait_dst_stage_mask) = desc.wait_stage {
             for s in wait_dst_stage_mask {
                 stage.push((*s).into());
             }
         }
 
-        if let Some(signal_semaphores) = submission.finish_semaphore {
+        if let Some(signal_semaphores) = desc.finish_semaphore {
             for s in signal_semaphores {
                 signal.push(p_semaphore.get(*s).unwrap().raw);
             }

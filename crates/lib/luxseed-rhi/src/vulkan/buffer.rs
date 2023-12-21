@@ -3,9 +3,9 @@ use ash::vk;
 use gpu_allocator::vulkan::*;
 
 use crate::{
-    define::{Buffer, BufferCreateDesc, Device},
+    define::{Buffer, BufferCreateDesc},
     impl_handle,
-    pool::{Handle, Handled},
+    pool::Handle,
 };
 
 use super::device::VulkanDevice;
@@ -14,7 +14,6 @@ use super::device::VulkanDevice;
 pub struct VulkanBuffer {
     pub raw: vk::Buffer,
     pub handle: Option<Handle<Buffer>>,
-    pub device: Option<Handle<Device>>,
     pub requirements: vk::MemoryRequirements,
     pub allocation: Option<Allocation>,
     pub size: u64,
@@ -31,8 +30,7 @@ impl VulkanBuffer {
         let raw = unsafe { device.raw().create_buffer(&info, None)? };
         let requirements = unsafe { device.raw().get_buffer_memory_requirements(raw) };
 
-        let allocator = device.allocator.as_mut().context("Device has not gpu allocator")?;
-        let mut allocation = allocator.allocate(&AllocationCreateDesc {
+        let mut allocation = device.get_mut_allocator().allocate(&AllocationCreateDesc {
             name: desc.name,
             requirements,
             location: desc.memory.into(),
@@ -51,7 +49,6 @@ impl VulkanBuffer {
                 .copy_from_slice(initial_data);
         }
         self.allocation = Some(allocation);
-        self.device = device.get_handle();
         self.raw = raw;
         self.requirements = requirements;
         self.size = desc.size as u64;
@@ -60,17 +57,14 @@ impl VulkanBuffer {
     }
 
     pub fn destroy(&mut self, device: &mut VulkanDevice) -> Result<()> {
-        if let Some(allocator) = device.allocator.as_mut() {
-            if let Some(allocation) = self.allocation.take() {
-                allocator.free(allocation)?;
-            }
+        if let Some(allocation) = self.allocation.take() {
+            device.get_mut_allocator().free(allocation)?;
         }
 
         unsafe {
             device.raw().destroy_buffer(self.raw, None);
         }
         self.raw = vk::Buffer::null();
-        self.device = None;
         self.allocation = None;
         self.requirements = vk::MemoryRequirements::default();
         self.size = 0;

@@ -23,7 +23,7 @@ use crate::define_resource_pool;
 use crate::enums::*;
 use crate::flag::*;
 use crate::pool::*;
-use crate::{RHICreation, RHI};
+use crate::{RenderBackend, RenderBackendCreateDesc};
 
 use self::buffer::*;
 use self::command::*;
@@ -40,7 +40,6 @@ use self::sync::*;
 
 define_resource_pool!(
     VulkanResourcePool,
-    (VulkanDevice, device, 1),
     (VulkanQueue, queue, 4),
     (VulkanSurface, surface, 1),
     (VulkanSwapchain, swapchain, 1),
@@ -67,10 +66,14 @@ pub struct VulkanRHI {
     res_pool: VulkanResourcePool,
     adapters: Vec<VulkanAdapter>,
     adapter_infos: Vec<AdapterInfo>,
+    device: Option<VulkanDevice>,
 }
 
+const ERR_MSG_DEVICE_NOT_CREATED: &str = "Device not created.";
+const ERR_MSG_QUEUE_NOT_FOUND: &str = "Queue not found.";
+
 impl VulkanRHI {
-    pub fn new(desc: RHICreation) -> Result<Self> {
+    pub fn new(desc: RenderBackendCreateDesc) -> Result<Self> {
         let instance = instance::VulkanInstance::new(desc)?;
 
         // Enumerate Adapters
@@ -84,21 +87,17 @@ impl VulkanRHI {
         }
 
         let resource_pool = VulkanResourcePool::new();
-        Ok(Self { instance, res_pool: resource_pool, adapters, adapter_infos })
+        Ok(Self { instance, res_pool: resource_pool, adapters, adapter_infos, device: None })
     }
 
-    fn get_device_handle_from_fences(&self, handles: &[Handle<Fence>]) -> Result<Handle<Device>> {
-        let mut ret = None;
-        for handle in handles {
-            let fence = self.res_pool.fence.get(*handle).context("Fence not found.")?;
-            let device = fence.device.unwrap();
-            if ret.is_none() {
-                ret = Some(device);
-            } else if ret.unwrap() != device {
-                return Err(anyhow::anyhow!("Fences are not from the same device."));
-            }
-        }
-        Ok(ret.unwrap())
+    #[inline]
+    pub fn get_device(&self) -> Result<&VulkanDevice> {
+        self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)
+    }
+
+    #[inline]
+    pub fn get_mut_device(&mut self) -> Result<&mut VulkanDevice> {
+        self.device.as_mut().context(ERR_MSG_DEVICE_NOT_CREATED)
     }
 }
 
@@ -108,49 +107,48 @@ impl Drop for VulkanRHI {
     }
 }
 
-impl RHI for VulkanRHI {
+impl RenderBackend for VulkanRHI {
+    fn get_type(&self) -> BackendType {
+        BackendType::Vulkan
+    }
+
     fn enumerate_adapter_infos(&self) -> &[AdapterInfo] {
         &self.adapter_infos
     }
 
-    fn create_device(&mut self, adapter_index: usize) -> Result<Handle<Device>> {
+    #[inline]
+    fn is_device_created(&self) -> bool {
+        self.device.is_some()
+    }
+
+    fn create_device(&mut self, adapter_index: usize) -> Result<()> {
+        if self.is_device_created() {
+            return Err(anyhow::anyhow!("Device already created."));
+        }
         let adapter = self.adapters.get(adapter_index).context("Adapter not found.")?;
-        let item = self.res_pool.device.malloc();
-        item.1.init(&self.instance, adapter, &mut self.res_pool.queue)?;
-        Ok(item.0)
-    }
-
-    fn destroy_device(&mut self, handle: Handle<Device>) -> Result<()> {
-        if let Some(device) = self.res_pool.device.get_mut(handle) {
-            device.destroy();
-            self.res_pool.device.free(handle);
-        }
+        self.device = Some(VulkanDevice::new(&self.instance, adapter, &mut self.res_pool.queue)?);
         Ok(())
     }
 
-    fn wait_idle(&self, device: Handle<Device>) -> Result<()> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
-        unsafe {
-            device.raw().device_wait_idle()?;
-        }
+    fn destroy_device(&mut self) -> Result<()> {
+        self.device.as_mut().context(ERR_MSG_DEVICE_NOT_CREATED)?.destroy();
         Ok(())
     }
 
-    fn get_queue(
-        &mut self,
-        device: Handle<Device>,
-        queue_type: QueueType,
-    ) -> Result<Handle<Queue>> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
-        device.get_queue(queue_type)
+    #[inline]
+    fn device_wait_idle(&self) -> Result<()> {
+        self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?.wait_idle()
+    }
+
+    #[inline]
+    fn get_queue(&self, queue_type: QueueType) -> Result<Handle<Queue>> {
+        self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?.get_queue(queue_type)
     }
 
     fn queue_submit(&self, handle: Handle<Queue>, desc: &QueueSubmitDesc) -> Result<()> {
-        let queue = self.res_pool.queue.get(handle).context("Queue not found.")?;
-        let device =
-            self.res_pool.device.get(queue.device.unwrap()).context("Device not found.")?;
+        let queue = self.res_pool.queue.get(handle).context(ERR_MSG_QUEUE_NOT_FOUND)?;
         queue.submit(
-            device,
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
             desc,
             &self.res_pool.fence,
             &self.res_pool.semaphore,
@@ -159,32 +157,24 @@ impl RHI for VulkanRHI {
     }
 
     fn queue_present(&self, handle: Handle<Queue>, desc: &QueuePresentDesc) -> Result<bool> {
-        let queue = self.res_pool.queue.get(handle).context("Queue not found.")?;
+        let queue = self.res_pool.queue.get(handle).context(ERR_MSG_QUEUE_NOT_FOUND)?;
         queue.present(desc, &self.res_pool.swapchain, &self.res_pool.semaphore)
     }
 
     fn queue_wait_idle(&self, handle: Handle<Queue>) -> Result<()> {
-        let queue = self.res_pool.queue.get(handle).context("Queue not found.")?;
-        let device =
-            self.res_pool.device.get(queue.device.unwrap()).context("Device not found.")?;
-        unsafe {
-            device.raw().queue_wait_idle(queue.raw)?;
-        }
-        Ok(())
+        let queue = self.res_pool.queue.get(handle).context(ERR_MSG_QUEUE_NOT_FOUND)?;
+        queue.wait_idle(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?.raw())
     }
 
-    fn create_fence(&mut self, device: Handle<Device>, signal: bool) -> Result<Handle<Fence>> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
+    fn create_fence(&mut self, signal: bool) -> Result<Handle<Fence>> {
         let item = self.res_pool.fence.malloc();
-        item.1.init(device, signal)?;
+        item.1.init(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, signal)?;
         Ok(item.0)
     }
 
     fn destroy_fence(&mut self, handle: Handle<Fence>) -> Result<()> {
         if let Some(fence) = self.res_pool.fence.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(fence.device.unwrap()).context("Device not found.")?;
-            fence.destroy(device);
+            fence.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.fence.free(handle);
         }
         Ok(())
@@ -196,35 +186,30 @@ impl RHI for VulkanRHI {
         wait_all: bool,
         timeout: u64,
     ) -> Result<()> {
-        let device = self.get_device_handle_from_fences(handles)?;
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
-        let fences =
-            handles.iter().map(|f| self.res_pool.fence.get(*f).unwrap().raw).collect::<Vec<_>>();
-        unsafe { device.raw().wait_for_fences(&fences, wait_all, timeout)? };
-        Ok(())
+        self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?.wait_for_fences(
+            handles,
+            wait_all,
+            timeout,
+            &self.res_pool.fence,
+        )
     }
 
     fn reset_fences(&self, handles: &[Handle<Fence>]) -> Result<()> {
-        let device = self.get_device_handle_from_fences(handles)?;
-        let fences =
-            handles.iter().map(|f| self.res_pool.fence.get(*f).unwrap().raw).collect::<Vec<_>>();
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
-        unsafe { device.raw().reset_fences(&fences)? };
-        Ok(())
+        self.device
+            .as_ref()
+            .context(ERR_MSG_DEVICE_NOT_CREATED)?
+            .reset_fences(handles, &self.res_pool.fence)
     }
 
-    fn create_semaphore(&mut self, device: Handle<Device>) -> Result<Handle<Semaphore>> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
+    fn create_semaphore(&mut self) -> Result<Handle<Semaphore>> {
         let item = self.res_pool.semaphore.malloc();
-        item.1.init(device)?;
+        item.1.init(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?)?;
         Ok(item.0)
     }
 
     fn destroy_semaphore(&mut self, handle: Handle<Semaphore>) -> Result<()> {
         if let Some(s) = self.res_pool.semaphore.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(s.device.unwrap()).context("Device not found.")?;
-            s.destroy(device);
+            s.destroy(self.device.as_mut().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.semaphore.free(handle);
         }
         Ok(())
@@ -244,23 +229,21 @@ impl RHI for VulkanRHI {
         Ok(())
     }
 
-    fn create_swapchain(
-        &mut self,
-        device: Handle<Device>,
-        desc: SwapchainCreation,
-    ) -> Result<Handle<Swapchain>> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
-        let surface: &VulkanSurface = self.res_pool.surface.get(desc.surface).unwrap();
-        let queue: &VulkanQueue = self.res_pool.queue.get(device.graphics_queue.unwrap()).unwrap();
+    fn create_swapchain(&mut self, desc: SwapchainCreateDesc) -> Result<Handle<Swapchain>> {
         let item = self.res_pool.swapchain.malloc();
-        item.1.init(&self.instance, device, surface, queue, desc, &mut self.res_pool.image)?;
+        item.1.init(
+            &self.instance,
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
+            desc,
+            &self.res_pool.surface,
+            &self.res_pool.queue,
+            &mut self.res_pool.image,
+        )?;
         Ok(item.0)
     }
 
     fn destroy_swapchain(&mut self, handle: Handle<Swapchain>) -> Result<()> {
         if let Some(swapchain) = self.res_pool.swapchain.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(swapchain.device.unwrap()).context("Device not found.")?;
             // Free swapchain images and views
             {
                 for handle in swapchain.back_buffers.iter() {
@@ -272,7 +255,7 @@ impl RHI for VulkanRHI {
                             .image_view
                             .get_mut(handle)
                             .context("Image view not found.")?;
-                        view.destroy(device);
+                        view.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
                         self.res_pool.image_view.free(handle);
                     }
                     self.res_pool.image.free(*handle);
@@ -317,20 +300,16 @@ impl RHI for VulkanRHI {
 
     fn create_descriptor_set_layout(
         &mut self,
-        device: Handle<Device>,
         desc: &DescriptorSetLayoutCreateDesc,
     ) -> Result<Handle<DescriptorSetLayout>> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
         let item = self.res_pool.descriptor_set_layout.malloc();
-        item.1.init(device, desc)?;
+        item.1.init(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, desc)?;
         Ok(item.0)
     }
 
     fn destroy_descriptor_set_layout(&mut self, handle: Handle<DescriptorSetLayout>) -> Result<()> {
         if let Some(dsl) = self.res_pool.descriptor_set_layout.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(dsl.device.unwrap()).context("Device not found.")?;
-            dsl.destroy(device);
+            dsl.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.descriptor_set_layout.free(handle);
         }
         Ok(())
@@ -338,20 +317,16 @@ impl RHI for VulkanRHI {
 
     fn create_descriptor_pool(
         &mut self,
-        device: Handle<Device>,
         desc: &DescriptorPoolCreateDesc,
     ) -> Result<Handle<DescriptorPool>> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
         let item = self.res_pool.descriptor_pool.malloc();
-        item.1.init(device, desc)?;
+        item.1.init(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, desc)?;
         Ok(item.0)
     }
 
     fn destroy_descriptor_pool(&mut self, handle: Handle<DescriptorPool>) -> Result<()> {
         if let Some(dp) = self.res_pool.descriptor_pool.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(dp.device.unwrap()).context("Device not found.")?;
-            dp.destroy(device);
+            dp.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.descriptor_pool.free(handle);
         }
         Ok(())
@@ -363,8 +338,8 @@ impl RHI for VulkanRHI {
     ) -> Result<Handle<DescriptorSet>> {
         let item = self.res_pool.descriptor_set.malloc();
         item.1.init(
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
             desc,
-            &self.res_pool.device,
             &self.res_pool.descriptor_pool,
             &self.res_pool.descriptor_set_layout,
             &self.res_pool.buffer,
@@ -377,37 +352,33 @@ impl RHI for VulkanRHI {
     fn destroy_descriptor_sets(&mut self, sets: &[Handle<DescriptorSet>]) -> Result<()> {
         for set in sets {
             if let Some(ds) = self.res_pool.descriptor_set.get_mut(*set) {
-                ds.destroy(&self.res_pool.device, &self.res_pool.descriptor_pool)?;
+                ds.destroy(
+                    self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?.raw(),
+                    &self.res_pool.descriptor_pool,
+                )?;
                 self.res_pool.descriptor_set.free(*set);
             }
         }
         Ok(())
     }
 
-    fn create_image(
-        &mut self,
-        device: Handle<Device>,
-        desc: &ImageCreateDesc,
-    ) -> Result<Handle<Image>> {
-        let device = self.res_pool.device.get_mut(device).context("Device not found.")?;
+    fn create_image(&mut self, desc: &ImageCreateDesc) -> Result<Handle<Image>> {
         let item = self.res_pool.image.malloc();
-        item.1.init(device, desc)?;
+        item.1.init(self.device.as_mut().context("Device not created.")?, desc)?;
         Ok(item.0)
     }
 
     fn destroy_image(&mut self, handle: Handle<Image>) -> Result<()> {
         if let Some(v) = self.res_pool.image.get_mut(handle) {
-            let device =
-                self.res_pool.device.get_mut(v.device.unwrap()).context("Device not found.")?;
             // Destory related views
             {
                 for (_, handle) in v.views.drain() {
                     let v = self.res_pool.image_view.get_mut(handle).unwrap();
-                    v.destroy(device);
+                    v.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
                     self.res_pool.image_view.free(handle);
                 }
             }
-            v.destroy(device)?;
+            v.destroy(self.device.as_mut().context("Device not created.")?)?;
             self.res_pool.image.free(handle);
         }
         Ok(())
@@ -415,81 +386,62 @@ impl RHI for VulkanRHI {
 
     fn create_image_view(
         &mut self,
-        device: Handle<Device>,
         texture: Handle<Image>,
         desc: &ImageViewCreateDesc,
     ) -> Result<Handle<ImageView>> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
         let texture = self.res_pool.image.get_mut(texture).context("Texture not found.")?;
         let desc = VulkanImageViewDesc::from_create_desc(desc, texture);
-        texture.get_or_create_view(device, &desc, &mut self.res_pool.image_view)
+        texture.get_or_create_view(
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
+            &desc,
+            &mut self.res_pool.image_view,
+        )
     }
 
     fn destroy_image_view(&mut self, handle: Handle<ImageView>) -> Result<()> {
         if let Some(v) = self.res_pool.image_view.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(v.device.unwrap()).context("Device not found.")?;
             // Remove from texture
             {
                 let texture = self.res_pool.image.get_mut(v.texture.unwrap()).unwrap();
                 texture.views.remove(&v.desc);
             }
-            v.destroy(device);
+            v.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.image_view.free(handle);
         }
         Ok(())
     }
 
-    fn create_sampler(
-        &mut self,
-        device: Handle<Device>,
-        desc: &SamplerCreateDesc,
-    ) -> Result<Handle<Sampler>> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
+    fn create_sampler(&mut self, desc: &SamplerCreateDesc) -> Result<Handle<Sampler>> {
         let item = self.res_pool.sampler.malloc();
-        item.1.init(device, desc)?;
+        item.1.init(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, desc)?;
         Ok(item.0)
     }
 
     fn destroy_sampler(&mut self, handle: Handle<Sampler>) -> Result<()> {
         if let Some(s) = self.res_pool.sampler.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(s.device.unwrap()).context("Device not found.")?;
-            s.destroy(device);
+            s.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.sampler.free(handle);
         }
         Ok(())
     }
 
-    fn create_shader_module(
-        &mut self,
-        device: Handle<Device>,
-        creation: &ShaderModuleCreation,
-    ) -> Result<Handle<Shader>> {
-        let device = self.res_pool.device.get(device).context("Device not found.")?;
+    fn create_shader_module(&mut self, creation: &ShaderModuleCreation) -> Result<Handle<Shader>> {
         let item = self.res_pool.shader_module.malloc();
-        item.1.init(device, creation)?;
+        item.1.init(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, creation)?;
         Ok(item.0)
     }
 
     fn destroy_shader_module(&mut self, handle: Handle<Shader>) -> Result<()> {
         if let Some(shader) = self.res_pool.shader_module.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(shader.device.unwrap()).context("Device not found.")?;
-            shader.destroy(device);
+            shader.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.shader_module.free(handle);
         }
         Ok(())
     }
 
-    fn create_buffer(
-        &mut self,
-        device: Handle<Device>,
-        desc: &BufferCreateDesc,
-    ) -> Result<Handle<Buffer>> {
-        let device = self.res_pool.device.get_mut(device).context("Device not found.")?;
+    fn create_buffer(&mut self, desc: &BufferCreateDesc) -> Result<Handle<Buffer>> {
         let item = self.res_pool.buffer.malloc();
-        item.1.init(device, desc)?;
+        item.1.init(self.device.as_mut().context(ERR_MSG_DEVICE_NOT_CREATED)?, desc)?;
         Ok(item.0)
     }
 
@@ -501,9 +453,7 @@ impl RHI for VulkanRHI {
 
     fn destroy_buffer(&mut self, buffer: Handle<Buffer>) -> Result<()> {
         if let Some(b) = self.res_pool.buffer.get_mut(buffer) {
-            let device =
-                self.res_pool.device.get_mut(b.device.unwrap()).context("Device not found.")?;
-            b.destroy(device)?;
+            b.destroy(self.device.as_mut().context(ERR_MSG_DEVICE_NOT_CREATED)?)?;
             self.res_pool.buffer.free(buffer);
         }
         Ok(())
@@ -511,20 +461,20 @@ impl RHI for VulkanRHI {
 
     fn create_pipeline_layout(
         &mut self,
-        device: Handle<Device>,
         desc: &PipelineLayoutCreateDesc,
     ) -> Result<Handle<PipelineLayout>> {
-        let device = self.res_pool.device.get_mut(device).context("Device not found.")?;
         let item = self.res_pool.pipeline_layout.malloc();
-        item.1.init(device, desc, &self.res_pool.descriptor_set_layout)?;
+        item.1.init(
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
+            desc,
+            &self.res_pool.descriptor_set_layout,
+        )?;
         Ok(item.0)
     }
 
     fn destroy_pipeline_layout(&mut self, pipeline_layout: Handle<PipelineLayout>) -> Result<()> {
         if let Some(pl) = self.res_pool.pipeline_layout.get_mut(pipeline_layout) {
-            let device =
-                self.res_pool.device.get(pl.device.unwrap()).context("Device not found.")?;
-            pl.destroy(device);
+            pl.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.pipeline_layout.free(pipeline_layout);
         }
         Ok(())
@@ -532,60 +482,58 @@ impl RHI for VulkanRHI {
 
     fn create_raster_pipeline(
         &mut self,
-        device: Handle<Device>,
         desc: &RasterPipelineCreateDesc,
     ) -> Result<Handle<RasterPipeline>> {
-        let device = self.res_pool.device.get_mut(device).context("Device not found.")?;
-        let render_pass = device.get_or_create_render_pass(&desc.render_pass_output.into())?;
+        let render_pass = self
+            .device
+            .as_mut()
+            .context(ERR_MSG_DEVICE_NOT_CREATED)?
+            .get_or_create_render_pass(&desc.render_pass_output.into())?;
         let pipeline_layout = self
             .res_pool
             .pipeline_layout
             .get(desc.pipeline_layout)
             .context("Pipeline layout not found.")?;
         let item = self.res_pool.raster_pipeline.malloc();
-        item.1.init(device, render_pass, pipeline_layout, desc, &self.res_pool.shader_module)?;
+        item.1.init(
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
+            render_pass,
+            pipeline_layout,
+            desc,
+            &self.res_pool.shader_module,
+        )?;
         Ok(item.0)
     }
 
     fn destroy_raster_pipeline(&mut self, handle: Handle<RasterPipeline>) -> Result<()> {
         if let Some(pipeline) = self.res_pool.raster_pipeline.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(pipeline.device.unwrap()).context("Device not found.")?;
-            pipeline.destroy(device);
+            pipeline.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.raster_pipeline.free(handle);
         }
         Ok(())
     }
 
-    fn create_render_pass(
-        &mut self,
-        device: Handle<Device>,
-        output: &RenderPassOutput,
-    ) -> Result<Handle<RenderPass>> {
-        let d = self.res_pool.device.get_mut(device).context("Device not found.")?;
+    fn create_render_pass(&mut self, output: &RenderPassOutput) -> Result<Handle<RenderPass>> {
         let item = self.res_pool.render_pass.malloc();
         let output = (*output).into();
-        let rp = d.get_or_create_render_pass(&output)?;
-        item.1.init(rp, d, output);
+        let rp = self
+            .device
+            .as_mut()
+            .context(ERR_MSG_DEVICE_NOT_CREATED)?
+            .get_or_create_render_pass(&output)?;
+        item.1.init(rp, self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, output);
         return Ok(item.0);
     }
 
     fn destroy_render_pass(&mut self, handle: Handle<RenderPass>) -> Result<()> {
         if let Some(rp) = self.res_pool.render_pass.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(rp.device.unwrap()).context("Device not found.")?;
-            rp.destroy(device);
+            rp.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.render_pass.free(handle);
         }
         Ok(())
     }
 
-    fn create_framebuffer(
-        &mut self,
-        device: Handle<Device>,
-        desc: &FramebufferCreateDesc,
-    ) -> Result<Handle<Framebuffer>> {
-        let d = self.res_pool.device.get_mut(device).context("Device not found.")?;
+    fn create_framebuffer(&mut self, desc: &FramebufferCreateDesc) -> Result<Handle<Framebuffer>> {
         let rp =
             self.res_pool.render_pass.get(desc.render_pass).context("Render pass not found.")?;
         let item = self.res_pool.framebuffer.malloc();
@@ -595,16 +543,18 @@ impl RHI for VulkanRHI {
             &self.res_pool.image,
             &self.res_pool.image_view,
         )?;
-        let fb = d.get_or_create_framebuffer(&desc)?;
-        item.1.init(fb, d, desc);
+        let fb = self
+            .device
+            .as_mut()
+            .context(ERR_MSG_DEVICE_NOT_CREATED)?
+            .get_or_create_framebuffer(&desc)?;
+        item.1.init(fb, self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, desc);
         Ok(item.0)
     }
 
     fn destroy_framebuffer(&mut self, handle: Handle<Framebuffer>) -> Result<()> {
         if let Some(fb) = self.res_pool.framebuffer.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(fb.device.unwrap()).context("Device not found.")?;
-            fb.destroy(device);
+            fb.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.framebuffer.free(handle);
         }
         Ok(())
@@ -616,25 +566,20 @@ impl RHI for VulkanRHI {
         release_resources: bool,
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(handle).context("Commmand buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        cb.reset(device, release_resources)?;
+        cb.reset(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, release_resources)?;
         Ok(())
     }
 
     fn create_command_pool(&mut self, queue: Handle<Queue>) -> Result<Handle<CommandPool>> {
-        let queue = self.res_pool.queue.get(queue).context("Queue not found.")?;
-        let device =
-            self.res_pool.device.get(queue.device.unwrap()).context("Device not found.")?;
+        let queue = self.res_pool.queue.get(queue).context(ERR_MSG_QUEUE_NOT_FOUND)?;
         let item = self.res_pool.command_pool.malloc();
-        item.1.init(queue, device)?;
+        item.1.init(queue, self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?)?;
         Ok(item.0)
     }
 
     fn destroy_command_pool(&mut self, handle: Handle<CommandPool>) -> Result<()> {
         if let Some(cp) = self.res_pool.command_pool.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(cp.device.unwrap()).context("Device not found.")?;
-            cp.destroy(device);
+            cp.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?);
             self.res_pool.command_pool.free(handle);
         }
         Ok(())
@@ -642,8 +587,7 @@ impl RHI for VulkanRHI {
 
     fn reset_command_pool(&self, handle: Handle<CommandPool>) -> Result<()> {
         let cp = self.res_pool.command_pool.get(handle).context("Command pool not found.")?;
-        let device = self.res_pool.device.get(cp.device.unwrap()).context("Device not found.")?;
-        cp.reset(device)
+        cp.reset(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?)
     }
 
     fn create_command_buffer(
@@ -652,22 +596,19 @@ impl RHI for VulkanRHI {
         level: CommandBufferLevel,
     ) -> Result<Handle<CommandBuffer>> {
         let cp = self.res_pool.command_pool.get(command_pool).context("Command pool not found.")?;
-        let device = self.res_pool.device.get(cp.device.unwrap()).context("Device not found.")?;
         let item = self.res_pool.command_buffer.malloc();
-        item.1.init(device, cp, level)?;
+        item.1.init(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, cp, level)?;
         Ok(item.0)
     }
 
     fn destroy_command_buffer(&mut self, handle: Handle<CommandBuffer>) -> Result<()> {
         if let Some(cb) = self.res_pool.command_buffer.get_mut(handle) {
-            let device =
-                self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
             let pool = self
                 .res_pool
                 .command_pool
                 .get(cb.pool.unwrap())
                 .context("Command pool not found.")?;
-            cb.destroy(device, pool);
+            cb.destroy(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, pool);
             self.res_pool.command_buffer.free(handle);
         }
         Ok(())
@@ -675,14 +616,12 @@ impl RHI for VulkanRHI {
 
     fn cmd_begin(&self, cb: Handle<CommandBuffer>, desc: CommandBufferBeginDesc) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        cb.begin(device, desc)
+        cb.begin(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, desc)
     }
 
     fn cmd_end(&self, cb: Handle<CommandBuffer>) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        cb.end(device)
+        cb.end(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?)
     }
 
     fn cmd_begin_render_pass(
@@ -694,16 +633,20 @@ impl RHI for VulkanRHI {
         clear_depth_stencil: Option<ClearDepthStencil>,
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
         let rp = self.res_pool.render_pass.get(render_pass).context("Render pass not found.")?;
         let fb = self.res_pool.framebuffer.get(framebuffer).context("Framebuffer not found.")?;
-        cb.begin_render_pass(device, rp, fb, clear_values, clear_depth_stencil)
+        cb.begin_render_pass(
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
+            rp,
+            fb,
+            clear_values,
+            clear_depth_stencil,
+        )
     }
 
     fn cmd_end_render_pass(&self, cb: Handle<CommandBuffer>) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        cb.end_render_pass(device)
+        cb.end_render_pass(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?)
     }
 
     fn cmd_bind_raster_pipeline(
@@ -712,10 +655,9 @@ impl RHI for VulkanRHI {
         pipeline: Handle<RasterPipeline>,
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
         let pipeline =
             self.res_pool.raster_pipeline.get(pipeline).context("Raster pipeline not found.")?;
-        cb.bind_raster_pipeline(device, pipeline)
+        cb.bind_raster_pipeline(self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, pipeline)
     }
 
     fn cmd_bind_descriptor_sets(
@@ -733,20 +675,23 @@ impl RHI for VulkanRHI {
             .pipeline_layout
             .get(pipeline_layout)
             .context("Pipeline layout not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
         let mut sets = SmallVec::<[ash::vk::DescriptorSet; 4]>::new();
         for set in descriptor_sets {
             sets.push(self.res_pool.descriptor_set.get(*set).unwrap().raw);
         }
         unsafe {
-            device.raw().cmd_bind_descriptor_sets(
-                cb.raw,
-                bind_point.into(),
-                pipeline_layout.raw,
-                first_set,
-                &sets,
-                dynamic_offsets,
-            );
+            self.device
+                .as_ref()
+                .context(ERR_MSG_DEVICE_NOT_CREATED)?
+                .raw()
+                .cmd_bind_descriptor_sets(
+                    cb.raw,
+                    bind_point.into(),
+                    pipeline_layout.raw,
+                    first_set,
+                    &sets,
+                    dynamic_offsets,
+                );
         }
         Ok(())
     }
@@ -760,8 +705,13 @@ impl RHI for VulkanRHI {
         height: u32,
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        cb.set_scissor(device, x, y, width, height)
+        cb.set_scissor(
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
+            x,
+            y,
+            width,
+            height,
+        )
     }
 
     fn cmd_set_viewport(
@@ -775,8 +725,15 @@ impl RHI for VulkanRHI {
         max_depth: f32,
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        cb.set_viewport(device, x, y, width, height, min_depth, max_depth)
+        cb.set_viewport(
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
+            x,
+            y,
+            width,
+            height,
+            min_depth,
+            max_depth,
+        )
     }
 
     fn cmd_bind_vertex_buffers(
@@ -787,13 +744,16 @@ impl RHI for VulkanRHI {
         offsets: &[u64],
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
         let mut v = SmallVec::<[ash::vk::Buffer; 4]>::new();
         for buffer in buffers {
             v.push(self.res_pool.buffer.get(*buffer).unwrap().raw);
         }
         unsafe {
-            device.raw().cmd_bind_vertex_buffers(cb.raw, first_binding, &v, &offsets);
+            self.device
+                .as_ref()
+                .context(ERR_MSG_DEVICE_NOT_CREATED)?
+                .raw()
+                .cmd_bind_vertex_buffers(cb.raw, first_binding, &v, &offsets);
         }
         Ok(())
     }
@@ -807,9 +767,13 @@ impl RHI for VulkanRHI {
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
         let buffer = self.res_pool.buffer.get(buffer).context("Buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
         unsafe {
-            device.raw().cmd_bind_index_buffer(cb.raw, buffer.raw, offset, index_type.into());
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?.raw().cmd_bind_index_buffer(
+                cb.raw,
+                buffer.raw,
+                offset,
+                index_type.into(),
+            );
         }
         Ok(())
     }
@@ -824,8 +788,12 @@ impl RHI for VulkanRHI {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
         let src = self.res_pool.buffer.get(src).context("Source buffer not found.")?;
         let dst = self.res_pool.buffer.get(dst).context("Destination buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        cb.copy_buffer(device, src, dst, regions);
+        cb.copy_buffer(
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
+            src,
+            dst,
+            regions,
+        );
         Ok(())
     }
 
@@ -837,9 +805,8 @@ impl RHI for VulkanRHI {
         image_memory_barriers: &[ImageMemoryBarrier],
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
         cb.pipeline_barrier(
-            device,
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
             src_stage_mask,
             dst_stage_mask,
             image_memory_barriers,
@@ -857,8 +824,13 @@ impl RHI for VulkanRHI {
         first_instance: u32,
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        cb.draw(device, vertex_count, instance_count, first_vertex, first_instance);
+        cb.draw(
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
+            vertex_count,
+            instance_count,
+            first_vertex,
+            first_instance,
+        );
         Ok(())
     }
 
@@ -872,9 +844,8 @@ impl RHI for VulkanRHI {
         first_instance: u32,
     ) -> Result<()> {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
         cb.draw_indexed(
-            device,
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
             index_count,
             instance_count,
             first_index,
@@ -895,8 +866,13 @@ impl RHI for VulkanRHI {
         let cb = self.res_pool.command_buffer.get(cb).context("Command buffer not found.")?;
         let src = self.res_pool.buffer.get(src).context("Source buffer not found.")?;
         let dst = self.res_pool.image.get(dst).context("Destination texture not found.")?;
-        let device = self.res_pool.device.get(cb.device.unwrap()).context("Device not found.")?;
-        cb.copy_buffer_to_image(device, src, dst, dst_image_layout, regions);
+        cb.copy_buffer_to_image(
+            self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?,
+            src,
+            dst,
+            dst_image_layout,
+            regions,
+        );
         Ok(())
     }
 

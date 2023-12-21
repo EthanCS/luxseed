@@ -19,7 +19,6 @@ use super::{
 pub struct VulkanDescriptorSetLayout {
     pub handle: Option<Handle<DescriptorSetLayout>>,
     pub raw: vk::DescriptorSetLayout,
-    pub device: Option<Handle<Device>>,
     pub vk_bindings: SmallVec<[vk::DescriptorSetLayoutBinding; MAX_DESCRIPTORS_PER_SET]>,
     pub binding_infos: SmallVec<[DescriptorBindingInfo; MAX_DESCRIPTORS_PER_SET]>,
     pub index_to_binding: SmallVec<[u8; MAX_DESCRIPTORS_PER_SET]>,
@@ -66,7 +65,6 @@ impl VulkanDescriptorSetLayout {
             )?
         };
         self.raw = raw;
-        self.device = device.get_handle();
         Ok(())
     }
 
@@ -75,7 +73,6 @@ impl VulkanDescriptorSetLayout {
             device.raw().destroy_descriptor_set_layout(self.raw, None);
         }
         self.raw = vk::DescriptorSetLayout::null();
-        self.device = None;
         self.index_to_binding.clear();
         self.binding_infos.clear();
         self.vk_bindings.clear();
@@ -92,7 +89,6 @@ impl VulkanDescriptorSetLayout {
 pub struct VulkanDescriptorPool {
     pub handle: Option<Handle<DescriptorPool>>,
     pub raw: vk::DescriptorPool,
-    pub device: Option<Handle<Device>>,
 }
 impl_handle!(VulkanDescriptorPool, DescriptorPool, handle);
 
@@ -115,7 +111,6 @@ impl VulkanDescriptorPool {
             )?
         };
         self.raw = raw;
-        self.device = device.get_handle();
         Ok(())
     }
 
@@ -124,7 +119,6 @@ impl VulkanDescriptorPool {
             device.raw().destroy_descriptor_pool(self.raw, None);
         }
         self.raw = vk::DescriptorPool::null();
-        self.device = None;
     }
 }
 
@@ -141,8 +135,8 @@ impl_handle!(VulkanDescriptorSet, DescriptorSet, handle);
 impl VulkanDescriptorSet {
     pub fn init(
         &mut self,
+        device: &VulkanDevice,
         desc: &DescriptorSetCreateDesc,
-        p_device: &Pool<VulkanDevice>,
         p_pool: &Pool<VulkanDescriptorPool>,
         p_layout: &Pool<VulkanDescriptorSetLayout>,
         p_buffer: &Pool<VulkanBuffer>,
@@ -150,7 +144,6 @@ impl VulkanDescriptorSet {
         p_sampler: &Pool<VulkanSampler>,
     ) -> Result<()> {
         let pool = p_pool.get(desc.pool).context("Descriptor Pool not found")?;
-        let device = p_device.get(pool.device.unwrap()).context("Device not found")?;
         let layout = p_layout.get(desc.layout).context("Descriptor Set Layout not found")?;
         let raw = unsafe {
             device.raw().allocate_descriptor_sets(
@@ -193,13 +186,12 @@ impl VulkanDescriptorSet {
 
     pub fn destroy(
         &mut self,
-        p_device: &Pool<VulkanDevice>,
+        device: &ash::Device,
         p_pool: &Pool<VulkanDescriptorPool>,
     ) -> Result<()> {
         let pool = p_pool.get(self.pool.unwrap()).context("Descriptor Pool not found")?;
-        let device = p_device.get(pool.device.unwrap()).context("Device not found")?;
         unsafe {
-            device.raw().free_descriptor_sets(pool.raw, &[self.raw])?;
+            device.free_descriptor_sets(pool.raw, &[self.raw])?;
         }
         self.raw = vk::DescriptorSet::null();
         self.pool = None;

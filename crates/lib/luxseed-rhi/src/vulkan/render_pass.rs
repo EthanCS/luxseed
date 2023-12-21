@@ -1,12 +1,7 @@
 use anyhow::Ok;
 use ash::vk;
 
-use crate::{
-    define::{Device, RenderPass},
-    impl_handle,
-    pool::{Handle, Handled},
-    MAX_RENDER_TARGETS,
-};
+use crate::{define::RenderPass, impl_handle, pool::Handle, MAX_RENDER_TARGETS};
 
 use super::device::VulkanDevice;
 
@@ -14,7 +9,6 @@ use super::device::VulkanDevice;
 pub struct VulkanRenderPass {
     pub handle: Option<Handle<RenderPass>>,
     pub raw: vk::RenderPass,
-    pub device: Option<Handle<Device>>,
     pub output: VulkanRenderPassOutput,
 }
 impl_handle!(VulkanRenderPass, RenderPass, handle);
@@ -27,7 +21,6 @@ impl VulkanRenderPass {
         output: VulkanRenderPassOutput,
     ) {
         self.raw = raw;
-        self.device = device.get_handle();
         self.output = output;
     }
 
