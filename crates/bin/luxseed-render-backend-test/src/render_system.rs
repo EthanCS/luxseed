@@ -1,7 +1,7 @@
 extern crate shaderc;
 
 use anyhow::{self, Ok, Result};
-use luxseed_rhi::{
+use luxseed_render_backend::{
     create_render_backend, define::*, enums::*, flag::*, pool::Handle, RenderBackend,
 };
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};

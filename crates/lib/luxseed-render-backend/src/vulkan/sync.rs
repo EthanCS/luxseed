@@ -4,7 +4,7 @@ use ash::vk::{self};
 use crate::{
     define::{Fence, Semaphore},
     impl_handle,
-    pool::{Handle, Handled},
+    pool::Handle,
 };
 
 use super::device::VulkanDevice;

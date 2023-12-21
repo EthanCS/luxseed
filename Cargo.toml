@@ -1,5 +1,5 @@
 [workspace]
 members = [
-    "crates/bin/luxseed-rhi-test",
-    "crates/lib/luxseed-rhi",
+    "crates/bin/luxseed-render-backend-test",
+    "crates/lib/luxseed-render-backend",
 ]

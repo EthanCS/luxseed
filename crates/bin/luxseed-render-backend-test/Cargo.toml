@@ -1,12 +1,12 @@
 [package]
-name = "luxseed-rhi-test"
+name = "luxseed-render-backend-test"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 winit = "0.28.3"
 raw-window-handle = "0.5.2"
-luxseed-rhi = { path = "../../lib/luxseed-rhi" }
+luxseed-render-backend = { path = "../../lib/luxseed-render-backend" }
 log = "0.4"
 env_logger = "0.9.0"
 dotenvy = "0.15.7"

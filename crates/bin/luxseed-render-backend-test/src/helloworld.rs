@@ -1,7 +1,7 @@
 use anyhow::Ok;
 use glam::{vec2, vec3, Mat4, Vec2, Vec3};
 use image::{io::Reader as ImageReader, EncodableLayout};
-use luxseed_rhi::{define::*, enums::*, flag::*, pool::Handle};
+use luxseed_render_backend::{define::*, enums::*, flag::*, pool::Handle};
 use std::{fs, mem::size_of};
 use winit::window::Window;
 
@@ -67,21 +67,21 @@ impl App {
 
         let vs = sys.compile_shader(
             "hello",
-            &fs::read_to_string("assets/luxseed-rhi-test/hello_world.vert")
+            &fs::read_to_string("assets/luxseed-render-backend-test/hello_world.vert")
                 .expect("Should have been able to read the file"),
             ShaderStageFlags::VERTEX,
             "main",
         )?;
         let fs = sys.compile_shader(
             "hello",
-            &fs::read_to_string("assets/luxseed-rhi-test/hello_world.frag")
+            &fs::read_to_string("assets/luxseed-render-backend-test/hello_world.frag")
                 .expect("Should have been able to read the file"),
             ShaderStageFlags::FRAGMENT,
             "main",
         )?;
 
         // Load image
-        let img = ImageReader::open("assets/luxseed-rhi-test/lue.jpg")?.decode()?;
+        let img = ImageReader::open("assets/luxseed-render-backend-test/lue.jpg")?.decode()?;
         let image = sys.rhi.create_image(&ImageCreateDesc::new_2d(
             "lue.jpg",
             Format::R8G8B8A8_SRGB,
