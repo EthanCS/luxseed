@@ -19,6 +19,9 @@ impl From<Format> for vk::Format {
             Format::R32G32_SFLOAT => vk::Format::R32G32_SFLOAT,
             Format::R32G32B32_SFLOAT => vk::Format::R32G32B32_SFLOAT,
             Format::R32G32B32A32_SFLOAT => vk::Format::R32G32B32A32_SFLOAT,
+            Format::D24_UNORM_S8_UINT => vk::Format::D24_UNORM_S8_UINT,
+            Format::D32_SFLOAT => vk::Format::D32_SFLOAT,
+            Format::D32_SFLOAT_S8_UINT => vk::Format::D32_SFLOAT_S8_UINT,
             _ => vk::Format::UNDEFINED,
         }
     }
