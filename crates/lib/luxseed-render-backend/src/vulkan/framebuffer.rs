@@ -22,12 +22,7 @@ pub struct VulkanFramebuffer {
 impl_handle!(VulkanFramebuffer, Framebuffer, handle);
 
 impl VulkanFramebuffer {
-    pub fn init(
-        &mut self,
-        raw: vk::Framebuffer,
-        device: &VulkanDevice,
-        desc: VulkanFramebufferDesc,
-    ) {
+    pub fn init(&mut self, raw: vk::Framebuffer, desc: VulkanFramebufferDesc) {
         self.raw = raw;
         self.desc = desc;
     }

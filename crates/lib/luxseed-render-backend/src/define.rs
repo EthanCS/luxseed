@@ -3,6 +3,9 @@ use smallvec::SmallVec;
 
 use crate::{enums::*, flag::*, pool::Handle, MAX_RENDER_TARGETS};
 
+pub const ERR_MSG_DEVICE_NOT_CREATED: &str = "Device not created.";
+pub const ERR_MSG_QUEUE_NOT_FOUND: &str = "Queue not found.";
+
 pub const MAX_DESCRIPTORS_PER_SET: usize = 16;
 
 #[derive(Clone)]

@@ -14,12 +14,7 @@ pub struct VulkanRenderPass {
 impl_handle!(VulkanRenderPass, RenderPass, handle);
 
 impl VulkanRenderPass {
-    pub fn init(
-        &mut self,
-        raw: vk::RenderPass,
-        device: &VulkanDevice,
-        output: VulkanRenderPassOutput,
-    ) {
+    pub fn init(&mut self, raw: vk::RenderPass, output: VulkanRenderPassOutput) {
         self.raw = raw;
         self.output = output;
     }

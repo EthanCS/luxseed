@@ -61,7 +61,7 @@ define_resource_pool!(
     (VulkanDescriptorSet, descriptor_set, 32)
 );
 
-pub struct VulkanRHI {
+pub struct VulkanBackend {
     instance: instance::VulkanInstance,
     res_pool: VulkanResourcePool,
     adapters: Vec<VulkanAdapter>,
@@ -69,10 +69,7 @@ pub struct VulkanRHI {
     device: Option<VulkanDevice>,
 }
 
-const ERR_MSG_DEVICE_NOT_CREATED: &str = "Device not created.";
-const ERR_MSG_QUEUE_NOT_FOUND: &str = "Queue not found.";
-
-impl VulkanRHI {
+impl VulkanBackend {
     pub fn new(desc: RenderBackendCreateDesc) -> Result<Self> {
         let instance = instance::VulkanInstance::new(desc)?;
 
@@ -101,13 +98,13 @@ impl VulkanRHI {
     }
 }
 
-impl Drop for VulkanRHI {
+impl Drop for VulkanBackend {
     fn drop(&mut self) {
         //todo!()
     }
 }
 
-impl RenderBackend for VulkanRHI {
+impl RenderBackend for VulkanBackend {
     fn get_type(&self) -> BackendType {
         BackendType::Vulkan
     }
@@ -521,7 +518,7 @@ impl RenderBackend for VulkanRHI {
             .as_mut()
             .context(ERR_MSG_DEVICE_NOT_CREATED)?
             .get_or_create_render_pass(&output)?;
-        item.1.init(rp, self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, output);
+        item.1.init(rp, output);
         return Ok(item.0);
     }
 
@@ -548,7 +545,7 @@ impl RenderBackend for VulkanRHI {
             .as_mut()
             .context(ERR_MSG_DEVICE_NOT_CREATED)?
             .get_or_create_framebuffer(&desc)?;
-        item.1.init(fb, self.device.as_ref().context(ERR_MSG_DEVICE_NOT_CREATED)?, desc);
+        item.1.init(fb, desc);
         Ok(item.0)
     }
 

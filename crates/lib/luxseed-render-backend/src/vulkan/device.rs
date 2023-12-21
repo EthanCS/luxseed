@@ -192,42 +192,39 @@ impl VulkanDevice {
         };
         let allocator = ManuallyDrop::new(Allocator::new(&allocator_create_desc)?);
 
-        // Get queue
-        let mut graphics_queue_handle = None;
-        let mut present_queue_handle = None;
-        let mut compute_queue_handle = None;
-        let mut transfer_queue_handle = None;
+        let mut ret = Self {
+            raw: device,
+            adapter: adapter.clone(),
+            allocator,
+            graphics_queue: None,
+            compute_queue: None,
+            transfer_queue: None,
+            present_queue: None,
+            render_pass_cache: Default::default(),
+            framebuffer_cache: Default::default(),
+        };
 
+        // Get queue
         {
             let main_queue = p_queue.malloc();
-            main_queue.1.init(&device, main_queue_family_index, 0);
-            graphics_queue_handle = Some(main_queue.0);
-            present_queue_handle = Some(main_queue.0);
+            main_queue.1.init(&ret.raw, main_queue_family_index, 0);
+            ret.graphics_queue = Some(main_queue.0);
+            ret.present_queue = Some(main_queue.0);
         }
 
         {
             let compute_queue = p_queue.malloc();
-            compute_queue.1.init(&device, compute_queue_family_index, compute_queue_index);
-            compute_queue_handle = Some(compute_queue.0);
+            compute_queue.1.init(&ret.raw, compute_queue_family_index, compute_queue_index);
+            ret.compute_queue = Some(compute_queue.0);
         }
 
         {
             let transfer_queue = p_queue.malloc();
-            transfer_queue.1.init(&device, transfer_queue_family_index, 0);
-            transfer_queue_handle = Some(transfer_queue.0);
+            transfer_queue.1.init(&ret.raw, transfer_queue_family_index, 0);
+            ret.transfer_queue = Some(transfer_queue.0);
         }
 
-        Ok(Self {
-            raw: device,
-            adapter: adapter.clone(),
-            allocator,
-            graphics_queue: graphics_queue_handle,
-            compute_queue: compute_queue_handle,
-            transfer_queue: transfer_queue_handle,
-            present_queue: present_queue_handle,
-            render_pass_cache: Default::default(),
-            framebuffer_cache: Default::default(),
-        })
+        Ok(ret)
     }
 
     #[inline]

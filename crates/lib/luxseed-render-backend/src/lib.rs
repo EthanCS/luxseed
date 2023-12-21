@@ -10,7 +10,7 @@ use define::*;
 use enums::*;
 use flag::*;
 use pool::Handle;
-use vulkan::VulkanRHI;
+use vulkan::VulkanBackend;
 
 pub const MAX_RENDER_TARGETS: usize = 8;
 pub const MAX_SHADER_STAGES: usize = 5;
@@ -20,7 +20,7 @@ pub fn create_render_backend(
     desc: RenderBackendCreateDesc,
 ) -> Result<Box<dyn RenderBackend>> {
     match backend {
-        BackendType::Vulkan => Ok(Box::new(VulkanRHI::new(desc)?)),
+        BackendType::Vulkan => Ok(Box::new(VulkanBackend::new(desc)?)),
         _ => anyhow::bail!("Unsupported RHI backend type"),
     }
 }
