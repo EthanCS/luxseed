@@ -97,3 +97,22 @@ bitflags! {
         const MEMORY_WRITE = 0b1_0000_0000_0000_0000;
     }
 }
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct FormatFeatureFlags : u32 {
+        const SAMPLED_IMAGE = 0b1;
+        const STORAGE_IMAGE = 0b10;
+        const STORAGE_IMAGE_ATOMIC = 0b100;
+        const UNIFORM_TEXEL_BUFFER = 0b1000;
+        const STORAGE_TEXEL_BUFFER = 0b1_0000;
+        const STORAGE_TEXEL_BUFFER_ATOMIC = 0b10_0000;
+        const VERTEX_BUFFER = 0b100_0000;
+        const COLOR_ATTACHMENT = 0b1000_0000;
+        const COLOR_ATTACHMENT_BLEND = 0b1_0000_0000;
+        const DEPTH_STENCIL_ATTACHMENT = 0b10_0000_0000;
+        const BLIT_SRC = 0b100_0000_0000;
+        const BLIT_DST = 0b1000_0000_0000;
+        const SAMPLED_IMAGE_FILTER_LINEAR = 0b1_0000_0000_0000;
+    }
+}

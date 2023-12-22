@@ -632,3 +632,49 @@ impl From<AccessFlags> for vk::AccessFlags {
         ret
     }
 }
+
+impl From<FormatFeatureFlags> for vk::FormatFeatureFlags {
+    fn from(value: FormatFeatureFlags) -> Self {
+        let mut ret = vk::FormatFeatureFlags::empty();
+        if value.contains(FormatFeatureFlags::SAMPLED_IMAGE) {
+            ret |= vk::FormatFeatureFlags::SAMPLED_IMAGE;
+        }
+        if value.contains(FormatFeatureFlags::STORAGE_IMAGE) {
+            ret |= vk::FormatFeatureFlags::STORAGE_IMAGE;
+        }
+        if value.contains(FormatFeatureFlags::STORAGE_IMAGE_ATOMIC) {
+            ret |= vk::FormatFeatureFlags::STORAGE_IMAGE_ATOMIC;
+        }
+        if value.contains(FormatFeatureFlags::UNIFORM_TEXEL_BUFFER) {
+            ret |= vk::FormatFeatureFlags::UNIFORM_TEXEL_BUFFER;
+        }
+        if value.contains(FormatFeatureFlags::STORAGE_TEXEL_BUFFER) {
+            ret |= vk::FormatFeatureFlags::STORAGE_TEXEL_BUFFER;
+        }
+        if value.contains(FormatFeatureFlags::STORAGE_TEXEL_BUFFER_ATOMIC) {
+            ret |= vk::FormatFeatureFlags::STORAGE_TEXEL_BUFFER_ATOMIC;
+        }
+        if value.contains(FormatFeatureFlags::VERTEX_BUFFER) {
+            ret |= vk::FormatFeatureFlags::VERTEX_BUFFER;
+        }
+        if value.contains(FormatFeatureFlags::COLOR_ATTACHMENT) {
+            ret |= vk::FormatFeatureFlags::COLOR_ATTACHMENT;
+        }
+        if value.contains(FormatFeatureFlags::COLOR_ATTACHMENT_BLEND) {
+            ret |= vk::FormatFeatureFlags::COLOR_ATTACHMENT_BLEND;
+        }
+        if value.contains(FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT) {
+            ret |= vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT;
+        }
+        if value.contains(FormatFeatureFlags::BLIT_SRC) {
+            ret |= vk::FormatFeatureFlags::BLIT_SRC;
+        }
+        if value.contains(FormatFeatureFlags::BLIT_DST) {
+            ret |= vk::FormatFeatureFlags::BLIT_DST;
+        }
+        if value.contains(FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR) {
+            ret |= vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR;
+        }
+        ret
+    }
+}

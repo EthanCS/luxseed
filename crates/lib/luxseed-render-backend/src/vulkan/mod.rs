@@ -105,10 +105,34 @@ impl Drop for VulkanBackend {
 }
 
 impl RenderBackend for VulkanBackend {
-    fn get_type(&self) -> BackendType {
+    #[inline]
+    fn get_backend_type(&self) -> BackendType {
         BackendType::Vulkan
     }
 
+    fn get_supported_format_from_candidates(
+        &self,
+        candidates: &[Format],
+        tiling: ImageTiling,
+        feature: FormatFeatureFlags,
+    ) -> Result<Format> {
+        let adapter = self.get_device()?.get_adapter().raw;
+        candidates
+            .iter()
+            .cloned()
+            .find(|f| {
+                let props = unsafe {
+                    self.instance.raw.get_physical_device_format_properties(adapter, (*f).into())
+                };
+                match tiling {
+                    ImageTiling::Linear => props.linear_tiling_features.contains(feature.into()),
+                    ImageTiling::Optimal => props.optimal_tiling_features.contains(feature.into()),
+                }
+            })
+            .ok_or_else(|| anyhow::anyhow!("No supported format found."))
+    }
+
+    #[inline]
     fn enumerate_adapter_infos(&self) -> &[AdapterInfo] {
         &self.adapter_infos
     }

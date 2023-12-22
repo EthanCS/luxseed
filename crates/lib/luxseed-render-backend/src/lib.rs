@@ -32,7 +32,25 @@ pub trait RenderBackend {
     /// # Returns
     ///
     /// The type of the backend.
-    fn get_type(&self) -> BackendType;
+    fn get_backend_type(&self) -> BackendType;
+
+    /// Gets supported formats from the given candidates. The candidates are sorted by priority.
+    ///
+    /// # Arguments
+    ///
+    /// * `candidates` - A slice of format candidates.
+    /// * `tiling` - The tiling mode.
+    /// * `feature` - The format feature flags.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the supported format if successful, or an error message otherwise.
+    fn get_supported_format_from_candidates(
+        &self,
+        candidates: &[Format],
+        tiling: ImageTiling,
+        feature: FormatFeatureFlags,
+    ) -> Result<Format>;
 
     /// Enumerates the adapter infos.
     ///
