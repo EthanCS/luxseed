@@ -193,108 +193,6 @@ impl RenderSystem {
         self.in_flight_fences[self.frame]
     }
 
-    pub fn upload_image_by_staging_buffer(
-        &mut self,
-        image: Handle<Image>,
-        data: &[u8],
-        width: u32,
-        height: u32,
-    ) -> Result<()> {
-        let size = data.len() as u64;
-        let staging_buffer = self.backend.create_buffer(&BufferCreateDesc {
-            name: "Staging Buffer",
-            size: size,
-            usage: BufferUsageFlags::TRANSFER_SRC,
-            memory: MemoryLocation::CpuToGpu,
-            initial_data: Some(data),
-        })?;
-        transition_image_layout(
-            &mut self.backend,
-            self.command_pool,
-            self.graphics_queue,
-            image,
-            ImageLayout::Undefined,
-            ImageLayout::TransferDstOptimal,
-            ImageAspectFlags::COLOR,
-        )?;
-        self.copy_buffer_to_image(staging_buffer, image, width, height)?;
-        transition_image_layout(
-            &mut self.backend,
-            self.command_pool,
-            self.graphics_queue,
-            image,
-            ImageLayout::TransferDstOptimal,
-            ImageLayout::ShaderReadOnlyOptimal,
-            ImageAspectFlags::COLOR,
-        )?;
-        self.backend.destroy_buffer(staging_buffer)?;
-        Ok(())
-    }
-
-    pub fn upload_buffer_by_staging_buffer(
-        &mut self,
-        buffer: Handle<Buffer>,
-        data: &[u8],
-    ) -> Result<()> {
-        let size = data.len() as u64;
-        let staging_buffer = self.backend.create_buffer(&BufferCreateDesc {
-            name: "Staging Buffer",
-            size: size,
-            usage: BufferUsageFlags::TRANSFER_SRC,
-            memory: MemoryLocation::CpuToGpu,
-            initial_data: Some(data),
-        })?;
-        self.copy_buffer(staging_buffer, buffer, size)?;
-        self.backend.destroy_buffer(staging_buffer)?;
-        Ok(())
-    }
-
-    pub fn copy_buffer(
-        &mut self,
-        src: Handle<Buffer>,
-        dst: Handle<Buffer>,
-        size: u64,
-    ) -> Result<()> {
-        let cb = begin_single_time_commands(&mut self.backend, self.command_pool)?;
-        self.backend.cmd_copy_buffer(
-            cb,
-            src,
-            dst,
-            &[BufferCopyRegion { size, ..Default::default() }],
-        )?;
-        end_single_time_commands(&mut self.backend, cb, self.graphics_queue)?;
-        Ok(())
-    }
-
-    pub fn copy_buffer_to_image(
-        &mut self,
-        src: Handle<Buffer>,
-        dst: Handle<Image>,
-        width: u32,
-        height: u32,
-    ) -> Result<()> {
-        let cb = begin_single_time_commands(&mut self.backend, self.command_pool)?;
-        self.backend.cmd_copy_buffer_to_image(
-            cb,
-            src,
-            dst,
-            ImageLayout::TransferDstOptimal,
-            &[BufferImageCopyRegion {
-                buffer_offset: 0,
-                buffer_row_length: 0,
-                buffer_image_height: 0,
-                aspect_mask: ImageAspectFlags::COLOR,
-                mip_level: 0,
-                base_array_layer: 0,
-                layer_count: 1,
-                image_offset: [0, 0, 0],
-                image_extent: [width, height, 1],
-            }],
-        )?;
-        end_single_time_commands(&mut self.backend, cb, self.graphics_queue)?;
-        Ok(())
-    }
-
     pub fn cleanup_swapchain(&mut self) -> Result<()> {
         for fb in self.swapchain_framebuffers.iter() {
             self.backend.destroy_framebuffer(*fb)?;
@@ -368,6 +266,12 @@ impl RenderSystem {
     }
 }
 
+pub fn as_byte_slice_unchecked<T: Copy>(v: &[T]) -> &[u8] {
+    unsafe {
+        std::slice::from_raw_parts(v.as_ptr() as *const u8, v.len() * std::mem::size_of::<T>())
+    }
+}
+
 pub fn create_depth(
     rhi: &mut Box<dyn RenderBackend>,
     width: u32,
@@ -385,6 +289,111 @@ pub fn create_depth(
         &ImageViewCreateDesc::new_2d(None, ImageAspectFlags::DEPTH),
     )?;
     Ok((depth_image, depth_image_view))
+}
+
+pub fn copy_buffer(
+    rhi: &mut Box<dyn RenderBackend>,
+    command_pool: Handle<CommandPool>,
+    queue: Handle<Queue>,
+    src: Handle<Buffer>,
+    dst: Handle<Buffer>,
+    size: u64,
+) -> Result<()> {
+    let cb = begin_single_time_commands(rhi, command_pool)?;
+    rhi.cmd_copy_buffer(cb, src, dst, &[BufferCopyRegion { size, ..Default::default() }])?;
+    end_single_time_commands(rhi, cb, queue)?;
+    Ok(())
+}
+
+pub fn upload_image_by_staging_buffer(
+    rhi: &mut Box<dyn RenderBackend>,
+    command_pool: Handle<CommandPool>,
+    queue: Handle<Queue>,
+    image: Handle<Image>,
+    data: &[u8],
+    width: u32,
+    height: u32,
+) -> Result<()> {
+    let size = data.len() as u64;
+    let staging_buffer = rhi.create_buffer(&BufferCreateDesc {
+        name: "Staging Buffer",
+        size: size,
+        usage: BufferUsageFlags::TRANSFER_SRC,
+        memory: MemoryLocation::CpuToGpu,
+        initial_data: Some(data),
+    })?;
+    transition_image_layout(
+        rhi,
+        command_pool,
+        queue,
+        image,
+        ImageLayout::Undefined,
+        ImageLayout::TransferDstOptimal,
+        ImageAspectFlags::COLOR,
+    )?;
+    copy_buffer_to_image(rhi, command_pool, queue, staging_buffer, image, width, height)?;
+    transition_image_layout(
+        rhi,
+        command_pool,
+        queue,
+        image,
+        ImageLayout::TransferDstOptimal,
+        ImageLayout::ShaderReadOnlyOptimal,
+        ImageAspectFlags::COLOR,
+    )?;
+    rhi.destroy_buffer(staging_buffer)?;
+    Ok(())
+}
+
+pub fn upload_buffer_by_staging_buffer(
+    rhi: &mut Box<dyn RenderBackend>,
+    command_pool: Handle<CommandPool>,
+    queue: Handle<Queue>,
+    buffer: Handle<Buffer>,
+    data: &[u8],
+) -> Result<()> {
+    let size = data.len() as u64;
+    let staging_buffer = rhi.create_buffer(&BufferCreateDesc {
+        name: "Staging Buffer",
+        size: size,
+        usage: BufferUsageFlags::TRANSFER_SRC,
+        memory: MemoryLocation::CpuToGpu,
+        initial_data: Some(data),
+    })?;
+    copy_buffer(rhi, command_pool, queue, staging_buffer, buffer, size)?;
+    rhi.destroy_buffer(staging_buffer)?;
+    Ok(())
+}
+
+pub fn copy_buffer_to_image(
+    rhi: &mut Box<dyn RenderBackend>,
+    command_pool: Handle<CommandPool>,
+    queue: Handle<Queue>,
+    src: Handle<Buffer>,
+    dst: Handle<Image>,
+    width: u32,
+    height: u32,
+) -> Result<()> {
+    let cb = begin_single_time_commands(rhi, command_pool)?;
+    rhi.cmd_copy_buffer_to_image(
+        cb,
+        src,
+        dst,
+        ImageLayout::TransferDstOptimal,
+        &[BufferImageCopyRegion {
+            buffer_offset: 0,
+            buffer_row_length: 0,
+            buffer_image_height: 0,
+            aspect_mask: ImageAspectFlags::COLOR,
+            mip_level: 0,
+            base_array_layer: 0,
+            layer_count: 1,
+            image_offset: [0, 0, 0],
+            image_extent: [width, height, 1],
+        }],
+    )?;
+    end_single_time_commands(rhi, cb, queue)?;
+    Ok(())
 }
 
 pub fn compile_shader_glsl(

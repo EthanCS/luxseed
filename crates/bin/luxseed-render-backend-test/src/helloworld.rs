@@ -5,7 +5,7 @@ use luxseed_render_backend::{define::*, enums::*, flag::*, pool::Handle};
 use std::{fs, mem::size_of};
 use winit::window::Window;
 
-use crate::render_system::{compile_shader_glsl, RenderSystem};
+use crate::render_system::*;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -55,12 +55,6 @@ pub struct App {
     pub sampler: Handle<Sampler>,
 }
 
-fn as_byte_slice_unchecked<T: Copy>(v: &[T]) -> &[u8] {
-    unsafe {
-        std::slice::from_raw_parts(v.as_ptr() as *const u8, v.len() * std::mem::size_of::<T>())
-    }
-}
-
 impl App {
     pub fn create(window: &Window) -> anyhow::Result<Self> {
         let mut sys = RenderSystem::create(window)?;
@@ -90,7 +84,10 @@ impl App {
             img.width(),
             img.height(),
         ))?;
-        sys.upload_image_by_staging_buffer(
+        upload_image_by_staging_buffer(
+            &mut sys.backend,
+            sys.command_pool,
+            sys.graphics_queue,
             image,
             img.to_rgba8().as_bytes(),
             img.width(),
@@ -127,7 +124,13 @@ impl App {
             memory: MemoryLocation::GpuOnly,
             initial_data: None,
         })?;
-        sys.upload_buffer_by_staging_buffer(vertex_buffer, as_byte_slice_unchecked(&vertices))?;
+        upload_buffer_by_staging_buffer(
+            &mut sys.backend,
+            sys.command_pool,
+            sys.graphics_queue,
+            vertex_buffer,
+            as_byte_slice_unchecked(&vertices),
+        )?;
 
         // Index buffer
         let indices: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
@@ -138,7 +141,13 @@ impl App {
             memory: MemoryLocation::GpuOnly,
             initial_data: None,
         })?;
-        sys.upload_buffer_by_staging_buffer(index_buffer, as_byte_slice_unchecked(&indices))?;
+        upload_buffer_by_staging_buffer(
+            &mut sys.backend,
+            sys.command_pool,
+            sys.graphics_queue,
+            index_buffer,
+            as_byte_slice_unchecked(&indices),
+        )?;
 
         // UBOs
         let mut uniform_buffers = Vec::new();
