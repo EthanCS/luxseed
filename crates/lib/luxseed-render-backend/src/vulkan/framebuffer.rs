@@ -1,5 +1,6 @@
 use anyhow::{Context, Ok};
 use ash::vk::{self};
+use smallvec::SmallVec;
 
 use crate::{
     define::{Framebuffer, FramebufferCreateDesc},
@@ -77,6 +78,7 @@ impl VulkanFramebufferDesc {
             views[num_attachments as usize] = view.raw;
             num_attachments += 1;
         }
+
         Ok(Self { render_pass, num_attachments, views, width, height, layers })
     }
 }
@@ -98,7 +100,7 @@ impl VulkanDevice {
         device: &ash::Device,
         desc: &VulkanFramebufferDesc,
     ) -> anyhow::Result<vk::Framebuffer> {
-        let mut attachments: Vec<vk::ImageView> = Vec::new();
+        let mut attachments: SmallVec<[vk::ImageView; MAX_RENDER_TARGETS + 1]> = Default::default();
         for i in 0..desc.num_attachments {
             attachments.push(desc.views[i as usize]);
         }

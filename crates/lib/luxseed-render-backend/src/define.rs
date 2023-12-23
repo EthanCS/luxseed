@@ -1,12 +1,14 @@
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use smallvec::SmallVec;
 
-use crate::{enums::*, flag::*, pool::Handle, MAX_RENDER_TARGETS};
+use crate::{enums::*, flag::*, pool::Handle};
 
 pub const ERR_MSG_DEVICE_NOT_CREATED: &str = "Device not created.";
 pub const ERR_MSG_QUEUE_NOT_FOUND: &str = "Queue not found.";
 
 pub const MAX_DESCRIPTORS_PER_SET: usize = 16;
+pub const MAX_RENDER_TARGETS: usize = 8;
+pub const MAX_SHADER_STAGES: usize = 5;
 
 #[derive(Clone)]
 pub struct AdapterInfo {
@@ -71,6 +73,21 @@ impl<'a> ImageCreateDesc<'a> {
             initial_layout: ImageLayout::Undefined,
         }
     }
+
+    pub fn new_depth(name: &'a str, format: Format, width: u32, height: u32) -> Self {
+        Self {
+            name,
+            format,
+            extent: [width, height, 1],
+            type_: ImageType::Texture2D,
+            usage: ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            tiling: ImageTiling::Optimal,
+            mip_levels: 1,
+            array_layers: 1,
+            samples: SampleCount::Sample1,
+            initial_layout: ImageLayout::Undefined,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -81,11 +98,32 @@ pub struct ImageViewCreateDesc {
     pub level_count: u8,
     pub base_array_layer: u8,
     pub layer_count: u8,
-    pub aspect_mask: TextureViewAspectMask,
+    pub aspect_mask: ImageAspectFlags,
     pub component_r: TextureComponentSwizzle,
     pub component_g: TextureComponentSwizzle,
     pub component_b: TextureComponentSwizzle,
     pub component_a: TextureComponentSwizzle,
+}
+
+impl ImageViewCreateDesc {
+    pub fn new_2d(
+        override_format: Option<Format>,
+        aspect_mask: ImageAspectFlags,
+    ) -> ImageViewCreateDesc {
+        Self {
+            format: override_format,
+            view_type: TextureViewType::Texture2D,
+            base_mip_level: 0,
+            level_count: 1,
+            base_array_layer: 0,
+            layer_count: 1,
+            aspect_mask,
+            component_r: TextureComponentSwizzle::Identity,
+            component_g: TextureComponentSwizzle::Identity,
+            component_b: TextureComponentSwizzle::Identity,
+            component_a: TextureComponentSwizzle::Identity,
+        }
+    }
 }
 
 impl Default for ImageViewCreateDesc {
@@ -97,7 +135,7 @@ impl Default for ImageViewCreateDesc {
             level_count: 1,
             base_array_layer: 0,
             layer_count: 1,
-            aspect_mask: TextureViewAspectMask::Color,
+            aspect_mask: ImageAspectFlags::COLOR,
             component_r: TextureComponentSwizzle::Identity,
             component_g: TextureComponentSwizzle::Identity,
             component_b: TextureComponentSwizzle::Identity,

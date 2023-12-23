@@ -1,6 +1,7 @@
 mod render_system;
 
 mod helloworld;
+mod depth_buffer;
 
 use winit::{
     dpi::LogicalSize,
@@ -9,7 +10,7 @@ use winit::{
     window::WindowBuilder,
 };
 
-use helloworld::App;
+use depth_buffer::App;
 
 const WIDTH: u32 = 1600;
 const HEIGHT: u32 = 900;

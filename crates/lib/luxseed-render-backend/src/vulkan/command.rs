@@ -24,6 +24,7 @@ use super::{
 pub struct VulkanCommandPool {
     pub handle: Option<Handle<CommandPool>>,
     pub raw: vk::CommandPool,
+    pub queue: Option<Handle<Queue>>,
 }
 impl_handle!(VulkanCommandPool, CommandPool, handle);
 
@@ -39,6 +40,7 @@ impl VulkanCommandPool {
             )?
         };
         self.raw = raw;
+        self.queue = queue.get_handle();
         Ok(())
     }
 

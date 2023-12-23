@@ -131,10 +131,30 @@ impl VulkanDevice {
         }
         let subpass = subpass.build();
 
+        // // Build dependency
+        // let dependency = vk::SubpassDependency::builder()
+        //     .src_subpass(vk::SUBPASS_EXTERNAL)
+        //     .dst_subpass(0)
+        //     .src_stage_mask(
+        //         vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+        //             | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+        //     )
+        //     .dst_stage_mask(
+        //         vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+        //             | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+        //     )
+        //     .src_access_mask(vk::AccessFlags::empty())
+        //     .dst_access_mask(
+        //         vk::AccessFlags::COLOR_ATTACHMENT_WRITE
+        //             | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+        //     )
+        //     .build();
+
         // Create Render Pass
         let render_pass_info = vk::RenderPassCreateInfo::builder()
             .subpasses(&[subpass])
             .attachments(&attachment_descriptions)
+            //.dependencies(&[dependency])
             .build();
         let render_pass = unsafe { device.create_render_pass(&render_pass_info, None)? };
 

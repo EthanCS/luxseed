@@ -57,15 +57,6 @@ pub enum TextureViewType {
     TextureCubeArray,
 }
 
-#[derive(Default, Clone, Copy, Debug)]
-pub enum TextureViewAspectMask {
-    #[default]
-    Unknown,
-    Color,
-    Depth,
-    Stencil,
-}
-
 #[derive(Default, Clone, Copy)]
 pub enum ImageTiling {
     #[default]

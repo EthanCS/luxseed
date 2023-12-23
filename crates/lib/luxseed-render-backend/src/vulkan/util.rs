@@ -47,17 +47,6 @@ impl From<vk::Format> for Format {
     }
 }
 
-impl From<TextureViewAspectMask> for vk::ImageAspectFlags {
-    fn from(item: TextureViewAspectMask) -> Self {
-        match item {
-            TextureViewAspectMask::Color => vk::ImageAspectFlags::COLOR,
-            TextureViewAspectMask::Depth => vk::ImageAspectFlags::DEPTH,
-            TextureViewAspectMask::Stencil => vk::ImageAspectFlags::STENCIL,
-            _ => vk::ImageAspectFlags::empty(),
-        }
-    }
-}
-
 impl From<TextureViewType> for vk::ImageViewType {
     fn from(item: TextureViewType) -> Self {
         match item {

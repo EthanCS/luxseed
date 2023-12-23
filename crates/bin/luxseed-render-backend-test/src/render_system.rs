@@ -8,7 +8,7 @@ use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::window::Window;
 
 pub struct RenderSystem {
-    pub rhi: Box<dyn RenderBackend>,
+    pub backend: Box<dyn RenderBackend>,
     pub surface: Handle<Surface>,
     pub graphics_queue: Handle<Queue>,
 
@@ -25,6 +25,9 @@ pub struct RenderSystem {
     pub render_finisheds: Vec<Handle<Semaphore>>,
 
     pub command_pool: Handle<CommandPool>,
+
+    pub depth_image: Handle<Image>,
+    pub depth_image_view: Handle<ImageView>,
 }
 
 impl RenderSystem {
@@ -56,11 +59,20 @@ impl RenderSystem {
         })?;
         let max_frames_in_flight = rhi.get_swapchain_image_count(swapchain)? as usize;
         let graphics_queue = rhi.get_queue(QueueType::Graphics)?;
+        let command_pool = rhi.create_command_pool(graphics_queue).unwrap();
+
         let swapchain_output = RenderPassOutput::builder()
             .add_color(
                 format,
                 ImageLayout::PresentSrcKhr,
                 RenderTargetLoadAction::Clear,
+                SampleCount::Sample1,
+            )
+            .set_depth_stencil(
+                Format::D32_SFLOAT,
+                ImageLayout::DepthStencilAttachmentOptimal,
+                RenderTargetLoadAction::Clear,
+                RenderTargetLoadAction::DontCare,
                 SampleCount::Sample1,
             )
             .build();
@@ -70,6 +82,19 @@ impl RenderSystem {
         let mut image_availables = Vec::new();
         let mut render_finisheds = Vec::new();
         let mut swapchain_framebuffers = Vec::new();
+
+        let (depth_image, depth_image_view) =
+            create_depth(&mut rhi, window.inner_size().width, window.inner_size().height)?;
+
+        transition_image_layout(
+            &mut rhi,
+            command_pool,
+            graphics_queue,
+            depth_image,
+            ImageLayout::Undefined,
+            ImageLayout::DepthStencilAttachmentOptimal,
+            ImageAspectFlags::DEPTH,
+        )?;
 
         for i in 0..max_frames_in_flight {
             in_flight_fences.push(rhi.create_fence(true)?);
@@ -84,15 +109,13 @@ impl RenderSystem {
             let fb = rhi.create_framebuffer(&FramebufferCreateDesc {
                 render_pass: swapchain_render_pass,
                 color_views: &[view],
-                depth_stencil_view: None,
+                depth_stencil_view: Some(depth_image_view),
             })?;
             swapchain_framebuffers.push(fb);
         }
 
-        let command_pool = rhi.create_command_pool(graphics_queue).unwrap();
-
         Ok(Self {
-            rhi,
+            backend: rhi,
             surface,
             graphics_queue,
 
@@ -109,13 +132,16 @@ impl RenderSystem {
             render_finisheds,
 
             command_pool,
+
+            depth_image,
+            depth_image_view,
         })
     }
 
     pub fn begin_frame(&mut self, width: u32, height: u32) -> Result<bool> {
-        self.rhi.wait_for_fences(&[self.get_in_flight_fence()], true, u64::MAX)?;
+        self.backend.wait_for_fences(&[self.get_in_flight_fence()], true, u64::MAX)?;
 
-        let image_index = self.rhi.acquire_swapchain_next_image(
+        let image_index = self.backend.acquire_swapchain_next_image(
             self.swapchain,
             u64::MAX,
             self.get_image_available_semaphore(),
@@ -128,13 +154,13 @@ impl RenderSystem {
         }
 
         self.image_index = image_index.0 as usize;
-        self.rhi.reset_fences(&[self.get_in_flight_fence()])?;
+        self.backend.reset_fences(&[self.get_in_flight_fence()])?;
 
         Ok(true)
     }
 
     pub fn end_frame(&mut self, recreate_swapchain: bool, width: u32, height: u32) -> Result<()> {
-        let suboptimal = self.rhi.queue_present(
+        let suboptimal = self.backend.queue_present(
             self.graphics_queue,
             &QueuePresentDesc {
                 swapchain: self.swapchain,
@@ -175,27 +201,33 @@ impl RenderSystem {
         height: u32,
     ) -> Result<()> {
         let size = data.len() as u64;
-        let staging_buffer = self.rhi.create_buffer(&BufferCreateDesc {
+        let staging_buffer = self.backend.create_buffer(&BufferCreateDesc {
             name: "Staging Buffer",
             size: size,
             usage: BufferUsageFlags::TRANSFER_SRC,
             memory: MemoryLocation::CpuToGpu,
             initial_data: Some(data),
         })?;
-        self.transition_image_layout(
+        transition_image_layout(
+            &mut self.backend,
+            self.command_pool,
+            self.graphics_queue,
             image,
             ImageLayout::Undefined,
             ImageLayout::TransferDstOptimal,
             ImageAspectFlags::COLOR,
         )?;
         self.copy_buffer_to_image(staging_buffer, image, width, height)?;
-        self.transition_image_layout(
+        transition_image_layout(
+            &mut self.backend,
+            self.command_pool,
+            self.graphics_queue,
             image,
             ImageLayout::TransferDstOptimal,
             ImageLayout::ShaderReadOnlyOptimal,
             ImageAspectFlags::COLOR,
         )?;
-        self.rhi.destroy_buffer(staging_buffer)?;
+        self.backend.destroy_buffer(staging_buffer)?;
         Ok(())
     }
 
@@ -205,7 +237,7 @@ impl RenderSystem {
         data: &[u8],
     ) -> Result<()> {
         let size = data.len() as u64;
-        let staging_buffer = self.rhi.create_buffer(&BufferCreateDesc {
+        let staging_buffer = self.backend.create_buffer(&BufferCreateDesc {
             name: "Staging Buffer",
             size: size,
             usage: BufferUsageFlags::TRANSFER_SRC,
@@ -213,31 +245,7 @@ impl RenderSystem {
             initial_data: Some(data),
         })?;
         self.copy_buffer(staging_buffer, buffer, size)?;
-        self.rhi.destroy_buffer(staging_buffer)?;
-        Ok(())
-    }
-
-    pub fn begin_single_time_commands(&mut self) -> Result<Handle<CommandBuffer>> {
-        let cb = self.rhi.create_command_buffer(self.command_pool, CommandBufferLevel::Primary)?;
-        self.rhi.cmd_begin(cb, CommandBufferBeginDesc { one_time_submit: true })?;
-        Ok(cb)
-    }
-
-    pub fn end_single_time_commands(&mut self, cb: Handle<CommandBuffer>) -> Result<()> {
-        self.rhi.cmd_end(cb)?;
-        self.rhi.queue_submit(
-            self.graphics_queue,
-            &QueueSubmitDesc {
-                wait_semaphore: None,
-                wait_stage: None,
-                command_buffer: &[cb],
-                finish_semaphore: None,
-                fence: None,
-            },
-        )?;
-        // wait for the queue to finish executing the command buffer
-        self.rhi.queue_wait_idle(self.graphics_queue)?;
-        self.rhi.destroy_command_buffer(cb)?;
+        self.backend.destroy_buffer(staging_buffer)?;
         Ok(())
     }
 
@@ -247,14 +255,14 @@ impl RenderSystem {
         dst: Handle<Buffer>,
         size: u64,
     ) -> Result<()> {
-        let cb = self.begin_single_time_commands()?;
-        self.rhi.cmd_copy_buffer(
+        let cb = begin_single_time_commands(&mut self.backend, self.command_pool)?;
+        self.backend.cmd_copy_buffer(
             cb,
             src,
             dst,
             &[BufferCopyRegion { size, ..Default::default() }],
         )?;
-        self.end_single_time_commands(cb)?;
+        end_single_time_commands(&mut self.backend, cb, self.graphics_queue)?;
         Ok(())
     }
 
@@ -265,8 +273,8 @@ impl RenderSystem {
         width: u32,
         height: u32,
     ) -> Result<()> {
-        let cb = self.begin_single_time_commands()?;
-        self.rhi.cmd_copy_buffer_to_image(
+        let cb = begin_single_time_commands(&mut self.backend, self.command_pool)?;
+        self.backend.cmd_copy_buffer_to_image(
             cb,
             src,
             dst,
@@ -283,102 +291,25 @@ impl RenderSystem {
                 image_extent: [width, height, 1],
             }],
         )?;
-        self.end_single_time_commands(cb)?;
+        end_single_time_commands(&mut self.backend, cb, self.graphics_queue)?;
         Ok(())
-    }
-
-    pub fn transition_image_layout(
-        &mut self,
-        image: Handle<Image>,
-        old_layout: ImageLayout,
-        new_layout: ImageLayout,
-        aspect_mask: ImageAspectFlags,
-    ) -> Result<()> {
-        let (src_access_mask, dst_access_mask, src_stage_mask, dst_stage_mask) =
-            match (old_layout, new_layout) {
-                (ImageLayout::Undefined, ImageLayout::TransferDstOptimal) => (
-                    AccessFlags::empty(),
-                    AccessFlags::TRANSFER_WRITE,
-                    PipelineStageFlags::TOP_OF_PIPE,
-                    PipelineStageFlags::TRANSFER,
-                ),
-                (ImageLayout::TransferDstOptimal, ImageLayout::ShaderReadOnlyOptimal) => (
-                    AccessFlags::TRANSFER_WRITE,
-                    AccessFlags::SHADER_READ,
-                    PipelineStageFlags::TRANSFER,
-                    PipelineStageFlags::FRAGMENT_SHADER,
-                ),
-                _ => return Err(anyhow::anyhow!("Unsupported image layout transition!")),
-            };
-
-        let cb = self.begin_single_time_commands()?;
-        self.rhi.cmd_pipeline_barrier(
-            cb,
-            src_stage_mask,
-            dst_stage_mask,
-            &[ImageMemoryBarrier {
-                image: image,
-                old_layout: old_layout,
-                new_layout: new_layout,
-                src_queue_family_index: None,
-                dst_queue_family_index: None,
-                aspect_mask: aspect_mask,
-                base_mip_level: 0,
-                level_count: 1,
-                base_array_layer: 0,
-                layer_count: 1,
-                src_access_mask,
-                dst_access_mask,
-            }],
-        )?;
-        self.end_single_time_commands(cb)?;
-        Ok(())
-    }
-
-    pub fn compile_shader(
-        &mut self,
-        name: &str,
-        code: &str,
-        stage: ShaderStageFlags,
-        entry: &str,
-    ) -> Result<Handle<Shader>> {
-        let compiler = shaderc::Compiler::new().unwrap();
-        self.rhi.create_shader_module(&ShaderModuleCreation {
-            name,
-            code: compiler
-                .compile_into_spirv(
-                    code,
-                    match stage {
-                        ShaderStageFlags::VERTEX => shaderc::ShaderKind::Vertex,
-                        ShaderStageFlags::FRAGMENT => shaderc::ShaderKind::Fragment,
-                        ShaderStageFlags::COMPUTE => shaderc::ShaderKind::Compute,
-                        _ => panic!("Unsupported shader stage"),
-                    },
-                    "shader.glsl",
-                    entry,
-                    None,
-                )
-                .unwrap()
-                .as_binary(),
-            stage,
-            entry: entry,
-        })
     }
 
     pub fn cleanup_swapchain(&mut self) -> Result<()> {
         for fb in self.swapchain_framebuffers.iter() {
-            self.rhi.destroy_framebuffer(*fb)?;
+            self.backend.destroy_framebuffer(*fb)?;
         }
-        self.rhi.destroy_swapchain(self.swapchain)?;
+        self.backend.destroy_image(self.depth_image)?;
+        self.backend.destroy_swapchain(self.swapchain)?;
         Ok(())
     }
 
     pub fn recreate_swapchain(&mut self, width: u32, height: u32) -> Result<()> {
-        self.rhi.device_wait_idle()?;
+        self.backend.device_wait_idle()?;
 
         self.cleanup_swapchain()?;
 
-        self.swapchain = self.rhi.create_swapchain(SwapchainCreateDesc {
+        self.swapchain = self.backend.create_swapchain(SwapchainCreateDesc {
             width: width,
             height: height,
             surface: self.surface,
@@ -386,17 +317,31 @@ impl RenderSystem {
             format: Format::B8G8R8A8_SRGB,
         })?;
 
+        let (depth_image, depth_image_view) = create_depth(&mut self.backend, width, height)?;
+        self.depth_image = depth_image;
+        self.depth_image_view = depth_image_view;
+
+        transition_image_layout(
+            &mut self.backend,
+            self.command_pool,
+            self.graphics_queue,
+            depth_image,
+            ImageLayout::Undefined,
+            ImageLayout::DepthStencilAttachmentOptimal,
+            ImageAspectFlags::DEPTH,
+        )?;
+
         self.swapchain_framebuffers.clear();
         for i in 0..self.max_frames_in_flight {
-            let back_buffer = self.rhi.get_swapchain_back_buffer(self.swapchain, i as usize)?;
-            let view = self.rhi.create_image_view(
+            let back_buffer = self.backend.get_swapchain_back_buffer(self.swapchain, i as usize)?;
+            let view = self.backend.create_image_view(
                 back_buffer,
                 &ImageViewCreateDesc { ..ImageViewCreateDesc::default() },
             )?;
-            let fb = self.rhi.create_framebuffer(&FramebufferCreateDesc {
+            let fb = self.backend.create_framebuffer(&FramebufferCreateDesc {
                 render_pass: self.swapchain_render_pass,
                 color_views: &[view],
-                depth_stencil_view: None,
+                depth_stencil_view: Some(self.depth_image_view),
             })?;
             self.swapchain_framebuffers.push(fb);
         }
@@ -405,19 +350,157 @@ impl RenderSystem {
     }
 
     pub fn destroy(&mut self) -> Result<()> {
+        self.backend.destroy_image(self.depth_image)?;
         for i in 0..self.max_frames_in_flight {
-            self.rhi.destroy_fence(self.in_flight_fences[i])?;
-            self.rhi.destroy_semaphore(self.image_availables[i])?;
-            self.rhi.destroy_semaphore(self.render_finisheds[i])?;
+            self.backend.destroy_fence(self.in_flight_fences[i])?;
+            self.backend.destroy_semaphore(self.image_availables[i])?;
+            self.backend.destroy_semaphore(self.render_finisheds[i])?;
         }
 
         self.cleanup_swapchain()?;
 
-        self.rhi.destroy_command_pool(self.command_pool).unwrap();
+        self.backend.destroy_command_pool(self.command_pool).unwrap();
 
-        self.rhi.destroy_render_pass(self.swapchain_render_pass)?;
-        self.rhi.destroy_surface(self.surface)?;
-        self.rhi.destroy_device()?;
+        self.backend.destroy_render_pass(self.swapchain_render_pass)?;
+        self.backend.destroy_surface(self.surface)?;
+        self.backend.destroy_device()?;
         Ok(())
     }
+}
+
+pub fn create_depth(
+    rhi: &mut Box<dyn RenderBackend>,
+    width: u32,
+    height: u32,
+) -> Result<(Handle<Image>, Handle<ImageView>)> {
+    let depth_format = rhi.get_supported_format_from_candidates(
+        &[Format::D32_SFLOAT, Format::D24_UNORM_S8_UINT, Format::D32_SFLOAT_S8_UINT],
+        ImageTiling::Optimal,
+        FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
+    )?;
+    let depth_image =
+        rhi.create_image(&ImageCreateDesc::new_depth("depth", depth_format, width, height))?;
+    let depth_image_view = rhi.create_image_view(
+        depth_image,
+        &ImageViewCreateDesc::new_2d(None, ImageAspectFlags::DEPTH),
+    )?;
+    Ok((depth_image, depth_image_view))
+}
+
+pub fn compile_shader_glsl(
+    backend: &mut Box<dyn RenderBackend>,
+    name: &str,
+    code: &str,
+    stage: ShaderStageFlags,
+    entry: &str,
+) -> Result<Handle<Shader>> {
+    let compiler = shaderc::Compiler::new().unwrap();
+    backend.create_shader_module(&ShaderModuleCreation {
+        name,
+        code: compiler
+            .compile_into_spirv(
+                code,
+                match stage {
+                    ShaderStageFlags::VERTEX => shaderc::ShaderKind::Vertex,
+                    ShaderStageFlags::FRAGMENT => shaderc::ShaderKind::Fragment,
+                    ShaderStageFlags::COMPUTE => shaderc::ShaderKind::Compute,
+                    _ => panic!("Unsupported shader stage"),
+                },
+                "shader.glsl",
+                entry,
+                None,
+            )
+            .unwrap()
+            .as_binary(),
+        stage,
+        entry: entry,
+    })
+}
+
+pub fn begin_single_time_commands(
+    backend: &mut Box<dyn RenderBackend>,
+    command_pool: Handle<CommandPool>,
+) -> Result<Handle<CommandBuffer>> {
+    let cb = backend.create_command_buffer(command_pool, CommandBufferLevel::Primary)?;
+    backend.cmd_begin(cb, CommandBufferBeginDesc { one_time_submit: true })?;
+    Ok(cb)
+}
+
+pub fn end_single_time_commands(
+    backend: &mut Box<dyn RenderBackend>,
+    cb: Handle<CommandBuffer>,
+    queue: Handle<Queue>,
+) -> Result<()> {
+    backend.cmd_end(cb)?;
+    backend.queue_submit(
+        queue,
+        &QueueSubmitDesc {
+            wait_semaphore: None,
+            wait_stage: None,
+            command_buffer: &[cb],
+            finish_semaphore: None,
+            fence: None,
+        },
+    )?;
+    // wait for the queue to finish executing the command buffer
+    backend.queue_wait_idle(queue)?;
+    backend.destroy_command_buffer(cb)?;
+    Ok(())
+}
+
+pub fn transition_image_layout(
+    backend: &mut Box<dyn RenderBackend>,
+    command_pool: Handle<CommandPool>,
+    queue: Handle<Queue>,
+    image: Handle<Image>,
+    old_layout: ImageLayout,
+    new_layout: ImageLayout,
+    aspect_mask: ImageAspectFlags,
+) -> Result<()> {
+    let (src_access_mask, dst_access_mask, src_stage_mask, dst_stage_mask) =
+        match (old_layout, new_layout) {
+            (ImageLayout::Undefined, ImageLayout::TransferDstOptimal) => (
+                AccessFlags::empty(),
+                AccessFlags::TRANSFER_WRITE,
+                PipelineStageFlags::TOP_OF_PIPE,
+                PipelineStageFlags::TRANSFER,
+            ),
+            (ImageLayout::TransferDstOptimal, ImageLayout::ShaderReadOnlyOptimal) => (
+                AccessFlags::TRANSFER_WRITE,
+                AccessFlags::SHADER_READ,
+                PipelineStageFlags::TRANSFER,
+                PipelineStageFlags::FRAGMENT_SHADER,
+            ),
+            (ImageLayout::Undefined, ImageLayout::DepthStencilAttachmentOptimal) => (
+                AccessFlags::empty(),
+                AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ
+                    | AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                PipelineStageFlags::TOP_OF_PIPE,
+                PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+            ),
+            _ => return Err(anyhow::anyhow!("Unsupported image layout transition!")),
+        };
+
+    let cb = begin_single_time_commands(backend, command_pool)?;
+    backend.cmd_pipeline_barrier(
+        cb,
+        src_stage_mask,
+        dst_stage_mask,
+        &[ImageMemoryBarrier {
+            image: image,
+            old_layout: old_layout,
+            new_layout: new_layout,
+            src_queue_family_index: None,
+            dst_queue_family_index: None,
+            aspect_mask: aspect_mask,
+            base_mip_level: 0,
+            level_count: 1,
+            base_array_layer: 0,
+            layer_count: 1,
+            src_access_mask,
+            dst_access_mask,
+        }],
+    )?;
+    end_single_time_commands(backend, cb, queue)?;
+    Ok(())
 }

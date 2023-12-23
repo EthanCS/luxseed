@@ -12,9 +12,6 @@ use flag::*;
 use pool::Handle;
 use vulkan::VulkanBackend;
 
-pub const MAX_RENDER_TARGETS: usize = 8;
-pub const MAX_SHADER_STAGES: usize = 5;
-
 pub fn create_render_backend(
     backend: BackendType,
     desc: RenderBackendCreateDesc,
@@ -25,7 +22,7 @@ pub fn create_render_backend(
     }
 }
 
-/// The RHI trait defines the interface for a rendering hardware abstraction layer.
+/// The RenderBackend trait defines the interface for a render backend.
 pub trait RenderBackend {
     /// Gets the type of the backend.
     ///
