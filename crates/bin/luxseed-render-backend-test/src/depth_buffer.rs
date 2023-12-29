@@ -1,7 +1,8 @@
 use anyhow::Ok;
 use glam::{vec2, vec3, Mat4, Vec2, Vec3};
 use image::{io::Reader as ImageReader, EncodableLayout};
-use luxseed_render_backend::{define::*, enums::*, flag::*, pool::Handle};
+use luxseed_render_backend::{define::*, enums::*, flag::*};
+use luxseed_utility::pool::Handle;
 use std::{fs, mem::size_of};
 use winit::window::Window;
 

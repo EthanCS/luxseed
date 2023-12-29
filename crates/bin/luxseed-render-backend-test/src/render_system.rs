@@ -1,9 +1,8 @@
 extern crate shaderc;
 
 use anyhow::{self, Ok, Result};
-use luxseed_render_backend::{
-    create_render_backend, define::*, enums::*, flag::*, pool::Handle, RenderBackend,
-};
+use luxseed_render_backend::{create_render_backend, define::*, enums::*, flag::*, RenderBackend};
+use luxseed_utility::pool::Handle;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::window::Window;
 

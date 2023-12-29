@@ -3,12 +3,12 @@ use ash::{
     extensions::khr,
     vk::{self, SurfaceFormatKHR},
 };
+use luxseed_utility::impl_handle;
+use luxseed_utility::pool::{Handle, Pool};
 
 use crate::{
     define::{Image, Surface, Swapchain, SwapchainCreateDesc},
     enums::QueueType,
-    impl_handle,
-    pool::{Handle, Pool},
     vulkan::{device::VulkanQueue, surface::VulkanSurface},
 };
 

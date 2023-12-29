@@ -23,7 +23,7 @@ pub trait Handled {
 #[macro_export]
 macro_rules! impl_handle {
     ($type:ty, $handle_type:ty, $handle:ident) => {
-        impl crate::pool::Handled for $type {
+        impl luxseed_utility::pool::Handled for $type {
             type HandleType = $handle_type;
 
             fn get_handle(&self) -> Option<Handle<Self::HandleType>> {

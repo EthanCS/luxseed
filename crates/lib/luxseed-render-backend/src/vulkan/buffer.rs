@@ -1,12 +1,10 @@
 use anyhow::{Context, Result};
 use ash::vk;
 use gpu_allocator::vulkan::*;
+use luxseed_utility::impl_handle;
+use luxseed_utility::pool::Handle;
 
-use crate::{
-    define::{Buffer, BufferCreateDesc},
-    impl_handle,
-    pool::Handle,
-};
+use crate::define::{Buffer, BufferCreateDesc};
 
 use super::device::VulkanDevice;
 

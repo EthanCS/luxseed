@@ -1,15 +1,12 @@
 use anyhow::{Context, Result};
 use ash::{extensions::khr, vk};
 use gpu_allocator::vulkan::*;
+use luxseed_utility::impl_handle;
+use luxseed_utility::pool::{Handle, Pool};
 use smallvec::SmallVec;
 use std::{collections::HashMap, ffi::CStr, mem::ManuallyDrop};
 
-use crate::{
-    define::*,
-    enums::*,
-    impl_handle,
-    pool::{Handle, Pool},
-};
+use crate::{define::*, enums::*};
 
 use super::{
     command::VulkanCommandBuffer,

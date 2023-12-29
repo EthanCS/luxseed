@@ -1,11 +1,11 @@
 use anyhow::{Context, Ok};
 use ash::vk::{self};
+use luxseed_utility::impl_handle;
+use luxseed_utility::pool::{Handle, Pool};
 use smallvec::SmallVec;
 
 use crate::{
     define::{Framebuffer, FramebufferCreateDesc},
-    impl_handle,
-    pool::{Handle, Pool},
     MAX_RENDER_TARGETS,
 };
 

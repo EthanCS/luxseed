@@ -1,7 +1,8 @@
+use luxseed_utility::pool::Handle;
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use smallvec::SmallVec;
 
-use crate::{enums::*, flag::*, pool::Handle};
+use crate::{enums::*, flag::*};
 
 pub const ERR_MSG_DEVICE_NOT_CREATED: &str = "Device not created.";
 pub const ERR_MSG_QUEUE_NOT_FOUND: &str = "Queue not found.";

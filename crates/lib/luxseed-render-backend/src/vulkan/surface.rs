@@ -1,10 +1,8 @@
 use ash::{extensions::khr, vk};
+use luxseed_utility::impl_handle;
+use luxseed_utility::pool::Handle;
 
-use crate::{
-    define::{Surface, SurfaceCreateDesc},
-    impl_handle,
-    pool::Handle,
-};
+use crate::define::{Surface, SurfaceCreateDesc};
 
 use super::instance::VulkanInstance;
 

@@ -1,11 +1,9 @@
 use anyhow::Ok;
 use ash::vk::{self};
+use luxseed_utility::impl_handle;
+use luxseed_utility::pool::Handle;
 
-use crate::{
-    define::{Fence, Semaphore},
-    impl_handle,
-    pool::Handle,
-};
+use crate::define::{Fence, Semaphore};
 
 use super::device::VulkanDevice;
 

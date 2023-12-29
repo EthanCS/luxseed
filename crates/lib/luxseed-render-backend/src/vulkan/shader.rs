@@ -1,11 +1,9 @@
 use ash::vk;
+use luxseed_utility::impl_handle;
+use luxseed_utility::pool::Handle;
 use std::ffi::CString;
 
-use crate::{
-    define::{Shader, ShaderModuleCreation},
-    impl_handle,
-    pool::Handle,
-};
+use crate::define::{Shader, ShaderModuleCreation};
 
 use super::device::VulkanDevice;
 

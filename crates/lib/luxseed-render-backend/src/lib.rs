@@ -1,15 +1,14 @@
 pub mod define;
 pub mod enums;
 pub mod flag;
-pub mod pool;
 pub mod vulkan;
 
 use anyhow::Result;
+use luxseed_utility::pool::Handle;
 
 use define::*;
 use enums::*;
 use flag::*;
-use pool::Handle;
 use vulkan::VulkanBackend;
 
 pub fn create_render_backend(

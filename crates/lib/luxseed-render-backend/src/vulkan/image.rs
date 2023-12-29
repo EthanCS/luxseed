@@ -1,13 +1,11 @@
 use anyhow::Result;
 use ash::vk;
 use gpu_allocator::vulkan::*;
+use luxseed_utility::impl_handle;
+use luxseed_utility::pool::{Handle, Handled, Pool};
 use std::collections::HashMap;
 
-use crate::{
-    define::*,
-    impl_handle,
-    pool::{Handle, Handled, Pool},
-};
+use crate::define::*;
 
 use super::device::VulkanDevice;
 

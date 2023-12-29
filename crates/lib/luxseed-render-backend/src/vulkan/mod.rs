@@ -15,14 +15,14 @@ pub mod util;
 
 use anyhow::Context;
 use anyhow::Result;
+use luxseed_utility::define_resource_pool;
+use luxseed_utility::pool::*;
 use smallvec::SmallVec;
 use std::ffi::CString;
 
 use crate::define::*;
-use crate::define_resource_pool;
 use crate::enums::*;
 use crate::flag::*;
-use crate::pool::*;
 use crate::{RenderBackend, RenderBackendCreateDesc};
 
 use self::buffer::*;

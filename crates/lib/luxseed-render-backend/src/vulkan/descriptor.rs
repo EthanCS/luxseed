@@ -1,13 +1,10 @@
 use anyhow::{Context, Result};
 use ash::vk;
+use luxseed_utility::impl_handle;
+use luxseed_utility::pool::{Handle, Handled, Pool};
 use smallvec::SmallVec;
 
-use crate::{
-    define::*,
-    enums::DescriptorType,
-    impl_handle,
-    pool::{Handle, Handled, Pool},
-};
+use crate::{define::*, enums::DescriptorType};
 
 use super::{
     buffer::VulkanBuffer,

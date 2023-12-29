@@ -1,15 +1,10 @@
 use anyhow::{Context, Ok};
 use ash::vk::{self};
+use luxseed_utility::impl_handle;
+use luxseed_utility::pool::{Handle, Handled, Pool};
 use smallvec::SmallVec;
 
-use crate::{
-    define::*,
-    enums::*,
-    flag::PipelineStageFlags,
-    impl_handle,
-    pool::{Handle, Handled, Pool},
-    MAX_RENDER_TARGETS,
-};
+use crate::{define::*, enums::*, flag::PipelineStageFlags, MAX_RENDER_TARGETS};
 
 use super::{
     buffer::VulkanBuffer,

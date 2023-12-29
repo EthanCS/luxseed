@@ -7,6 +7,7 @@ edition = "2021"
 winit = "0.28.3"
 raw-window-handle = "0.5.2"
 luxseed-render-backend = { path = "../../lib/luxseed-render-backend" }
+luxseed-utility = { path = "../../lib/luxseed-utility" }
 log = "0.4"
 env_logger = "0.9.0"
 dotenvy = "0.15.7"

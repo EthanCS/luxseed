@@ -1,7 +1,9 @@
 use anyhow::Ok;
 use ash::vk;
+use luxseed_utility::impl_handle;
+use luxseed_utility::pool::Handle;
 
-use crate::{define::RenderPass, impl_handle, pool::Handle, MAX_RENDER_TARGETS};
+use crate::{define::RenderPass, MAX_RENDER_TARGETS};
 
 use super::device::VulkanDevice;
 
