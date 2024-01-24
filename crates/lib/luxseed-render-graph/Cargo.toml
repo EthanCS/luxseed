@@ -1,0 +1,10 @@
+[package]
+name = "luxseed-render-graph"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+luxseed-utility = { path = "../luxseed-utility" }
+luxseed-render-backend = { path = "../luxseed-render-backend" }
+smallvec = "1.11.2"
+anyhow = "1.0.70"
