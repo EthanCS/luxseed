@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
 use std::{borrow::Cow, collections::HashMap};
 
-use crate::node::{Node, NodeHandle, NodeIdentifier};
+use crate::{
+    edge::Edge,
+    node::{Node, NodeHandle, NodeIdentifier},
+};
 
 const MAX_RESOURCES_COUNT: usize = 1024;
 const MAX_NODES_COUNT: usize = 1024;
@@ -13,7 +16,7 @@ pub struct RenderGraph {
 }
 
 impl RenderGraph {
-    pub fn update(&mut self) -> anyhow::Result<()> {
+    pub fn update(&mut self) -> Result<()> {
         for node in self.nodes.values_mut() {
             if let Some(on_update) = node.on_update.take() {
                 on_update()?;
@@ -57,8 +60,54 @@ impl RenderGraph {
         handle
     }
 
-    pub fn add_edge(&mut self, edges: &[&'static str]) {
+    pub fn remove_node(&mut self, name: impl Into<Cow<'static, str>>) -> Result<()> {
         todo!()
+    }
+
+    pub fn try_add_node_edge(
+        &mut self,
+        output: impl Into<NodeIdentifier>,
+        input: impl Into<NodeIdentifier>,
+    ) -> Result<()> {
+        let output = self.get_node_handle(output)?;
+        let input = self.get_node_handle(input)?;
+
+        let new_edge = Edge::NodeEdge { output_node: output, input_node: input };
+        if !self.has_edge(&new_edge) {
+            {
+                let output_node = self.get_node_mut(output)?;
+                output_node.add_output_edge(new_edge)?;
+            }
+            let input_node = self.get_node_mut(input)?;
+            input_node.add_input_edge(new_edge)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn remove_node_edge(
+        &mut self,
+        output: impl Into<NodeIdentifier>,
+        input: impl Into<NodeIdentifier>,
+    ) -> Result<()> {
+        todo!()
+    }
+
+    /// Checks if the graph has this edge.
+    pub fn has_edge(&self, edge: &Edge) -> bool {
+        let output_node = self.get_node(edge.get_output_node());
+        let input_node = self.get_node(edge.get_input_node());
+        if let Ok(output_node) = output_node {
+            if output_node.output_edges().contains(edge) {
+                if let Ok(input_node) = input_node {
+                    if input_node.input_edges().contains(edge) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
     }
 }
 
@@ -89,22 +138,23 @@ mod tests {
         let handle = rg.add_node("test_node");
 
         for _ in 0..5 {
-            {
-                data.update();
-                rg.get_node_mut(handle).unwrap().on_update(move || {
-                    println!("{}", data.value);
-                    Ok(())
-                });
-                rg.update().unwrap();
-            }
-            {
-                data.update();
-                rg.get_node_mut("test_node").unwrap().on_update(move || {
-                    println!("{}", data.value);
-                    Ok(())
-                });
-                rg.update().unwrap();
-            }
+            data.update();
+            rg.get_node_mut(handle).unwrap().on_update(move || {
+                println!("{}", data.value);
+                Ok(())
+            });
+            rg.update().unwrap();
         }
+
+        for _ in 0..5 {
+            data.update();
+            rg.get_node_mut("test_node").unwrap().on_update(move || {
+                println!("{}", data.value);
+                Ok(())
+            });
+            rg.update().unwrap();
+        }
+
+        assert_eq!(data.value, 10);
     }
 }

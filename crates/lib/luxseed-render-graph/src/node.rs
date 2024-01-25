@@ -2,7 +2,7 @@ use luxseed_utility::define_atomic_id;
 use smallvec::SmallVec;
 use std::{borrow::Cow, fmt::Debug, fmt::Formatter};
 
-use crate::{context::RenderGraphContext, edge::Edge};
+use crate::{context::RenderGraphContext, edge::Edge, resource::ResourceSlotCollection};
 
 const DEFAULT_RESOURCES_COUNT: usize = 4;
 const DEFAULT_EDGES_COUNT: usize = 4;
@@ -19,6 +19,8 @@ pub struct Node {
     pub on_render: Option<Box<OnRenderFn>>,
     input_edges: SmallVec<[Edge; DEFAULT_EDGES_COUNT]>,
     output_edges: SmallVec<[Edge; DEFAULT_EDGES_COUNT]>,
+    input_resource_slots: ResourceSlotCollection,
+    output_resource_slots: ResourceSlotCollection,
 }
 
 impl Debug for Node {
@@ -33,7 +35,9 @@ impl Node {
             handle,
             name: None,
             input_edges: SmallVec::new(),
+            input_resource_slots: Default::default(),
             output_edges: SmallVec::new(),
+            output_resource_slots: Default::default(),
             on_update: None,
             on_render: None,
         }
