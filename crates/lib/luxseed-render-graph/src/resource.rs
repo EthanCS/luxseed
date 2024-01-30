@@ -78,8 +78,16 @@ pub struct ResourceSlot {
 }
 
 impl ResourceSlot {
-    pub fn new(name: impl Into<Cow<'static, str>>, resource_type: ResourceType) -> Self {
-        Self { name: name.into(), resource_type }
+    pub fn image_view(name: impl Into<Cow<'static, str>>) -> Self {
+        Self { name: name.into(), resource_type: ResourceType::ImageView }
+    }
+
+    pub fn sampler(name: impl Into<Cow<'static, str>>) -> Self {
+        Self { name: name.into(), resource_type: ResourceType::Sampler }
+    }
+
+    pub fn buffer(name: impl Into<Cow<'static, str>>) -> Self {
+        Self { name: name.into(), resource_type: ResourceType::Buffer }
     }
 }
 
@@ -118,13 +126,13 @@ pub struct ResourceSlotCollection {
     slots: SmallVec<[ResourceSlot; DEFAULT_RESOURCE_SLOTS_COUNT]>,
 }
 
-impl<T: IntoIterator<Item = ResourceSlot>> From<T> for ResourceSlotCollection {
-    fn from(slots: T) -> Self {
-        Self { slots: slots.into_iter().collect() }
-    }
-}
-
 impl ResourceSlotCollection {
+    /// Adds an element to the collection.
+    #[inline]
+    pub fn add(&mut self, slot: ResourceSlot) {
+        self.slots.push(slot);
+    }
+
     /// Returns `true` if the collection contains no elements.
     #[inline]
     pub fn is_empty(&self) -> bool {
