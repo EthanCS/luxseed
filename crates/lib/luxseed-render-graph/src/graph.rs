@@ -1,11 +1,10 @@
-use anyhow::{Context, Result};
-use std::{borrow::Cow, collections::HashMap};
-
 use crate::{
     edge::Edge,
     node::{Node, NodeHandle, NodeIdentifier},
     resource::{ResourceSlot, ResourceSlotIdentifier},
+    RenderGraphError,
 };
+use std::{borrow::Cow, collections::HashMap};
 
 const MAX_RESOURCES_COUNT: usize = 1024;
 const MAX_NODES_COUNT: usize = 1024;
@@ -17,38 +16,44 @@ pub struct RenderGraph {
 }
 
 impl RenderGraph {
-    pub fn update(&mut self) -> Result<()> {
+    pub fn update(&mut self) -> Result<(), RenderGraphError> {
         for node in self.nodes.values_mut() {
             if let Some(on_update) = node.on_update.take() {
-                on_update()?;
+                on_update().map_err(|_| RenderGraphError::NodeOnUpdateError(node.handle.into()))?;
             }
         }
         Ok(())
     }
 
-    pub fn get_node_handle(&self, identifier: impl Into<NodeIdentifier>) -> Result<NodeHandle> {
-        match identifier.into() {
-            NodeIdentifier::Name(ref name) => self
-                .node_names
-                .get(name)
-                .copied()
-                .context(anyhow::format_err!("Node with name {:?} not found", name)),
+    pub fn get_node_handle(
+        &self,
+        identifier: impl Into<NodeIdentifier>,
+    ) -> Result<NodeHandle, RenderGraphError> {
+        let identifier = identifier.into();
+        match identifier {
+            NodeIdentifier::Name(ref name) => {
+                self.node_names.get(name).copied().ok_or(RenderGraphError::InvalidNode(identifier))
+            }
             NodeIdentifier::Handle(handle) => Ok(handle),
         }
     }
 
-    pub fn get_node(&self, identifier: impl Into<NodeIdentifier>) -> Result<&Node> {
-        let node_handle = self.get_node_handle(identifier)?;
-        self.nodes
-            .get(&node_handle)
-            .context(anyhow::format_err!("Node with handle {:?} not found", node_handle))
+    pub fn get_node(
+        &self,
+        identifier: impl Into<NodeIdentifier>,
+    ) -> Result<&Node, RenderGraphError> {
+        let identifier = identifier.into();
+        let node_handle = self.get_node_handle(&identifier)?;
+        self.nodes.get(&node_handle).ok_or(RenderGraphError::InvalidNode(identifier))
     }
 
-    pub fn get_node_mut(&mut self, identifier: impl Into<NodeIdentifier>) -> Result<&mut Node> {
-        let node_handle = self.get_node_handle(identifier)?;
-        self.nodes
-            .get_mut(&node_handle)
-            .context(anyhow::format_err!("Node with handle {:?} not found", node_handle))
+    pub fn get_node_mut(
+        &mut self,
+        identifier: impl Into<NodeIdentifier>,
+    ) -> Result<&mut Node, RenderGraphError> {
+        let identifier = identifier.into();
+        let node_handle = self.get_node_handle(&identifier)?;
+        self.nodes.get_mut(&node_handle).ok_or(RenderGraphError::InvalidNode(identifier))
     }
 
     pub fn add_node(
@@ -66,11 +71,14 @@ impl RenderGraph {
         handle
     }
 
-    pub fn remove_node(&mut self, name: impl Into<Cow<'static, str>>) -> Result<()> {
+    pub fn remove_node(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Result<(), RenderGraphError> {
         todo!()
     }
 
-    /// Checks if the graph has this edge.
+    /// Return true if the graph has this edge.
     pub fn has_edge(&self, edge: &Edge) -> bool {
         let output_node = self.get_node(edge.get_output_node());
         let input_node = self.get_node(edge.get_input_node());
@@ -87,23 +95,61 @@ impl RenderGraph {
         false
     }
 
+    pub fn validate_edge(&self, edge: &Edge, should_exist: bool) -> Result<(), RenderGraphError> {
+        if should_exist && !self.has_edge(edge) {
+            return Err(RenderGraphError::EdgeDoesNotExist(edge.clone()));
+        } else if !should_exist && self.has_edge(edge) {
+            return Err(RenderGraphError::EdgeAlreadyExists(edge.clone()));
+        }
+
+        match *edge {
+            Edge::ResourceEdge {
+                output_node_handle,
+                output_slot_index,
+                input_node_handle,
+                input_slot_index,
+            } => {
+                let output_node = self.get_node(output_node_handle)?;
+                let output_slot = output_node.output_slots().get_slot(output_slot_index).ok_or(
+                    RenderGraphError::InvalidNodeOutputSlot(
+                        output_node_handle.into(),
+                        output_slot_index.into(),
+                    ),
+                )?;
+
+                let input_node = self.get_node(input_node_handle)?;
+                let input_slot = input_node.input_slots().get_slot(input_slot_index).ok_or(
+                    RenderGraphError::InvalidNodeInputSlot(
+                        input_node_handle.into(),
+                        input_slot_index.into(),
+                    ),
+                )?;
+            }
+            _ => {}
+        }
+
+        Ok(())
+    }
+
     pub fn try_add_node_edge(
         &mut self,
         output: impl Into<NodeIdentifier>,
         input: impl Into<NodeIdentifier>,
-    ) -> Result<()> {
-        let output = self.get_node_handle(output)?;
-        let input = self.get_node_handle(input)?;
+    ) -> Result<(), RenderGraphError> {
+        let output = output.into();
+        let output_node_handle = self.get_node_handle(&output)?;
+        let input = input.into();
+        let input_node_handle = self.get_node_handle(&input)?;
 
-        let new_edge = Edge::NodeEdge { output_node: output, input_node: input };
-        if !self.has_edge(&new_edge) {
-            {
-                let output_node = self.get_node_mut(output)?;
-                output_node.add_output_edge(new_edge)?;
-            }
-            let input_node = self.get_node_mut(input)?;
-            input_node.add_input_edge(new_edge)?;
+        let new_edge = Edge::NodeEdge { output_node_handle, input_node_handle };
+        self.validate_edge(&new_edge, false)?;
+
+        {
+            let output_node = self.get_node_mut(&output)?;
+            output_node.add_output_edge(new_edge)?;
         }
+        let input_node = self.get_node_mut(&input)?;
+        input_node.add_input_edge(new_edge)?;
 
         Ok(())
     }
@@ -112,7 +158,7 @@ impl RenderGraph {
         &mut self,
         output: impl Into<NodeIdentifier>,
         input: impl Into<NodeIdentifier>,
-    ) -> Result<()> {
+    ) -> Result<(), RenderGraphError> {
         todo!()
     }
 
@@ -122,8 +168,41 @@ impl RenderGraph {
         output_slot: impl Into<ResourceSlotIdentifier>,
         input_node: impl Into<NodeIdentifier>,
         input_slot: impl Into<ResourceSlotIdentifier>,
-    ) -> Result<()> {
-        todo!()
+    ) -> Result<(), RenderGraphError> {
+        let output_node = output_node.into();
+        let output_slot = output_slot.into();
+        let output_node_handle = self.get_node_handle(&output_node)?;
+        let output_slot_index = self
+            .get_node(&output_node)?
+            .output_slots()
+            .get_slot_index(&output_slot)
+            .ok_or(RenderGraphError::InvalidNodeOutputSlot(output_node, output_slot))?;
+
+        let input_slot = input_slot.into();
+        let input_node = input_node.into();
+        let input_node_handle = self.get_node_handle(&input_node)?;
+        let input_slot_index = self
+            .get_node(&input_node)?
+            .input_slots()
+            .get_slot_index(&input_slot)
+            .ok_or(RenderGraphError::InvalidNodeInputSlot(input_node, input_slot))?;
+
+        let new_edge = Edge::ResourceEdge {
+            output_node_handle,
+            output_slot_index,
+            input_node_handle,
+            input_slot_index,
+        };
+        self.validate_edge(&new_edge, false)?;
+
+        {
+            let output_node = self.get_node_mut(output_node_handle)?;
+            output_node.add_output_edge(new_edge)?;
+        }
+        let input_node = self.get_node_mut(input_node_handle)?;
+        input_node.add_input_edge(new_edge)?;
+
+        Ok(())
     }
 }
 

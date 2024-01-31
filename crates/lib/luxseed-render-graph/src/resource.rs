@@ -121,6 +121,12 @@ impl From<usize> for ResourceSlotIdentifier {
     }
 }
 
+impl From<&ResourceSlotIdentifier> for ResourceSlotIdentifier {
+    fn from(identifier: &ResourceSlotIdentifier) -> Self {
+        identifier.clone()
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct ResourceSlotCollection {
     slots: SmallVec<[ResourceSlot; DEFAULT_RESOURCE_SLOTS_COUNT]>,
@@ -145,10 +151,7 @@ impl ResourceSlotCollection {
         self.slots.len()
     }
 
-    pub fn get_resource_slot_index(
-        &self,
-        identifier: impl Into<ResourceSlotIdentifier>,
-    ) -> Option<usize> {
+    pub fn get_slot_index(&self, identifier: impl Into<ResourceSlotIdentifier>) -> Option<usize> {
         let identifier = identifier.into();
         match identifier.into() {
             ResourceSlotIdentifier::Name(name) => self.slots.iter().position(|s| s.name == *name),
@@ -156,19 +159,16 @@ impl ResourceSlotCollection {
         }
     }
 
-    pub fn get_resource_slot(
-        &self,
-        identifier: impl Into<ResourceSlotIdentifier>,
-    ) -> Option<&ResourceSlot> {
-        let index = self.get_resource_slot_index(identifier)?;
+    pub fn get_slot(&self, identifier: impl Into<ResourceSlotIdentifier>) -> Option<&ResourceSlot> {
+        let index = self.get_slot_index(identifier)?;
         self.slots.get(index)
     }
 
-    pub fn get_resource_slot_mut(
+    pub fn get_slot_mut(
         &mut self,
         identifier: impl Into<ResourceSlotIdentifier>,
     ) -> Option<&mut ResourceSlot> {
-        let index = self.get_resource_slot_index(identifier)?;
+        let index = self.get_slot_index(identifier)?;
         self.slots.get_mut(index)
     }
 

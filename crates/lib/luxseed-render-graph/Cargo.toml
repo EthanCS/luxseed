@@ -7,4 +7,5 @@ edition = "2021"
 luxseed-utility = { path = "../luxseed-utility" }
 luxseed-render-backend = { path = "../luxseed-render-backend" }
 smallvec = "1.11.2"
+thiserror = "1.0.56"
 anyhow = "1.0.70"
