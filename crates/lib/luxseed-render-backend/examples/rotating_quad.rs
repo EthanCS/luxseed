@@ -1,23 +1,68 @@
-use anyhow::Ok;
+mod render_system;
+
 use glam::{vec2, vec3, Mat4, Vec2, Vec3};
 use image::{io::Reader as ImageReader, EncodableLayout};
 use luxseed_render_backend::{define::*, enums::*, flag::*};
 use luxseed_utility::pool::Handle;
+use render_system::*;
 use std::{fs, mem::size_of};
-use winit::window::Window;
+use winit::{
+    dpi::LogicalSize,
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::{Window, WindowBuilder},
+};
 
-use crate::render_system::*;
+const WIDTH: u32 = 1600;
+const HEIGHT: u32 = 900;
 
+fn main() -> anyhow::Result<()> {
+    // Window
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new()
+        .with_title("Luxseed RHI Test App")
+        .with_inner_size(LogicalSize::new(WIDTH, HEIGHT))
+        .build(&event_loop)?;
+
+    // App
+    let mut app = App::create(&window)?;
+    let mut destroying = false;
+    let mut minimized = false;
+
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Poll;
+        match event {
+            // Render a frame if our Vulkan app is not being destroyed.
+            Event::MainEventsCleared if !destroying && !minimized => app.render(&window).unwrap(),
+            // Mark the window as having been resized.
+            Event::WindowEvent { event: WindowEvent::Resized(size), .. } => {
+                if size.width == 0 || size.height == 0 {
+                    minimized = true;
+                } else {
+                    minimized = false;
+                    app.resize = true;
+                }
+            }
+            // Destroy our Vulkan app.
+            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+                destroying = true;
+                *control_flow = ControlFlow::Exit;
+                app.destroy();
+            }
+            _ => {}
+        }
+    });
+}
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct Vertex {
-    pub pos: Vec3,
+    pub pos: Vec2,
     pub color: Vec3,
     pub tex_coord: Vec2,
 }
 
 impl Vertex {
-    const fn new(pos: Vec3, color: Vec3, tex_coord: Vec2) -> Self {
+    const fn new(pos: Vec2, color: Vec3, tex_coord: Vec2) -> Self {
         Self { pos, color, tex_coord }
     }
 }
@@ -63,7 +108,7 @@ impl App {
         let vs = compile_shader_glsl(
             &mut sys.backend,
             "hello",
-            &fs::read_to_string("assets/luxseed-render-backend-test/depth_buffer.vert")
+            &fs::read_to_string("assets/luxseed-render-backend-test/hello_world.vert")
                 .expect("Should have been able to read the file"),
             ShaderStageFlags::VERTEX,
             "main",
@@ -113,14 +158,10 @@ impl App {
 
         // Vertex buffer
         let vertices = vec![
-            Vertex::new(vec3(-0.5, -0.5, 0.0), vec3(1.0, 0.0, 0.0), vec2(1.0, 0.0)),
-            Vertex::new(vec3(0.5, -0.5, 0.0), vec3(0.0, 1.0, 0.0), vec2(0.0, 0.0)),
-            Vertex::new(vec3(0.5, 0.5, 0.0), vec3(0.0, 0.0, 1.0), vec2(0.0, 1.0)),
-            Vertex::new(vec3(-0.5, 0.5, 0.0), vec3(1.0, 1.0, 1.0), vec2(1.0, 1.0)),
-            Vertex::new(vec3(-0.5, -0.5, -0.5), vec3(1.0, 0.0, 0.0), vec2(1.0, 0.0)),
-            Vertex::new(vec3(0.5, -0.5, -0.5), vec3(0.0, 1.0, 0.0), vec2(0.0, 0.0)),
-            Vertex::new(vec3(0.5, 0.5, -0.5), vec3(0.0, 0.0, 1.0), vec2(0.0, 1.0)),
-            Vertex::new(vec3(-0.5, 0.5, -0.5), vec3(1.0, 1.0, 1.0), vec2(1.0, 1.0)),
+            Vertex::new(vec2(-0.5, -0.5), vec3(1.0, 0.0, 0.0), vec2(0.0, 0.0)),
+            Vertex::new(vec2(0.5, -0.5), vec3(0.0, 1.0, 0.0), vec2(1.0, 0.0)),
+            Vertex::new(vec2(0.5, 0.5), vec3(0.0, 0.0, 1.0), vec2(1.0, 1.0)),
+            Vertex::new(vec2(-0.5, 0.5), vec3(1.0, 1.0, 1.0), vec2(0.0, 1.0)),
         ];
         let vertex_buffer = sys.backend.create_buffer(&BufferCreateDesc {
             name: "Triangle_Vertex",
@@ -138,7 +179,7 @@ impl App {
         )?;
 
         // Index buffer
-        let indices: Vec<u16> = vec![0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4];
+        let indices: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
         let index_buffer = sys.backend.create_buffer(&BufferCreateDesc {
             name: "Triangle_Index",
             size: (indices.len() * std::mem::size_of::<u16>()) as u64,
@@ -212,13 +253,13 @@ impl App {
                     stride: std::mem::size_of::<Vertex>(),
                     input_rate: VertexInputRate::Vertex,
                     attributes: &[
-                        VertexInputAttribute { offset: 0, format: Format::R32G32B32_SFLOAT },
+                        VertexInputAttribute { offset: 0, format: Format::R32G32_SFLOAT },
                         VertexInputAttribute {
-                            offset: size_of::<Vec3>(),
+                            offset: size_of::<Vec2>(),
                             format: Format::R32G32B32_SFLOAT,
                         },
                         VertexInputAttribute {
-                            offset: (size_of::<Vec3>() + size_of::<Vec3>()),
+                            offset: (size_of::<Vec2>() + size_of::<Vec3>()),
                             format: Format::R32G32_SFLOAT,
                         },
                     ],
@@ -226,10 +267,7 @@ impl App {
                 shader_stages: &[vs, fs],
                 render_pass_output: sys.swapchain_output,
                 blend_states: &[BlendState::default()],
-                raster_state: RasterState {
-                    front_face: FrontFace::CounterClockwise,
-                    ..Default::default()
-                },
+                raster_state: RasterState::default(),
                 depth_state: DepthState::default(),
                 pipeline_layout,
             })
@@ -275,7 +313,7 @@ impl App {
     fn update_uniform_buffer(&mut self, width: u32, height: u32) -> anyhow::Result<()> {
         let time = self.start.elapsed().as_secs_f32();
 
-        let mut ubo = UniformBufferObject {
+        let ubo = UniformBufferObject {
             model: Mat4::from_axis_angle(vec3(0.0, 0.0, 1.0), time * 90.0_f32.to_radians()),
             view: Mat4::look_at_rh(vec3(2.0, 2.0, 2.0), vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0)),
             proj: Mat4::perspective_rh(
@@ -285,7 +323,6 @@ impl App {
                 10.0,
             ),
         };
-        ubo.proj.col_mut(1)[1] *= -1.0;
 
         let ub = self.uniform_buffers[self.sys.frame];
         self.sys
@@ -308,8 +345,7 @@ impl App {
             let rp = self.sys.swapchain_render_pass;
             let fb = self.sys.get_swapchain_framebuffer();
             let cv = ClearColor::new([0.0, 0.0, 0.0, 1.0]);
-            let cd = ClearDepthStencil { depth: 1.0, stencil: 0 };
-            self.sys.backend.cmd_begin_render_pass(cb, rp, fb, Some(&[cv]), Some(cd))?;
+            self.sys.backend.cmd_begin_render_pass(cb, rp, fb, Some(&[cv]), None)?;
             self.sys.backend.cmd_bind_raster_pipeline(cb, self.pipeline)?;
             self.sys.backend.cmd_set_viewport(
                 cb,
