@@ -124,6 +124,34 @@ impl RenderGraph {
                         input_slot_index.into(),
                     ),
                 )?;
+
+                if output_slot.resource_type != input_slot.resource_type {
+                    return Err(RenderGraphError::MismatchNodeSlotResourceType(
+                        output_node_handle.into(),
+                        output_slot_index.into(),
+                        input_node_handle.into(),
+                        input_slot_index.into(),
+                    ));
+                }
+
+                // Check if the input slot is already connected to another output slot.
+                if let Some(Edge::ResourceEdge {
+                    output_node_handle: current_output_node, ..
+                }) = input_node.input_edges().iter().find(|e| {
+                    if let Edge::ResourceEdge { input_slot_index: current_input_index, .. } = e {
+                        input_slot_index == *current_input_index
+                    } else {
+                        false
+                    }
+                }) {
+                    if !should_exist {
+                        return Err(RenderGraphError::NodeInputSlotAlreadyConnected(
+                            input_node_handle.into(),
+                            input_slot_index.into(),
+                            (*current_output_node).into(),
+                        ));
+                    }
+                }
             }
             _ => {}
         }

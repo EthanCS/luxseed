@@ -23,20 +23,29 @@ impl RenderGraphSystem {
 
 #[derive(Error, Debug)]
 pub enum RenderGraphError {
-    #[error("Node {0:?} not found")]
+    #[error("node {0:?} not found")]
     InvalidNode(NodeIdentifier),
-    #[error("Node {0:?} has no input slot {1:?}")]
+    #[error("node {0:?} has no input slot {1:?}")]
     InvalidNodeInputSlot(NodeIdentifier, ResourceSlotIdentifier),
-    #[error("Node {0:?} has no output slot {1:?}")]
+    #[error("node {0:?} has no output slot {1:?}")]
     InvalidNodeOutputSlot(NodeIdentifier, ResourceSlotIdentifier),
-    #[error("Edge {0:?} already exists")]
+    #[error("node {0:?} slot {1:?} and Node {2:?} Slot {3:?} type mismatch")]
+    MismatchNodeSlotResourceType(
+        NodeIdentifier,
+        ResourceSlotIdentifier,
+        NodeIdentifier,
+        ResourceSlotIdentifier,
+    ),
+    #[error("node {0:?} input slot {1:?} already connected by node {2:?}")]
+    NodeInputSlotAlreadyConnected(NodeIdentifier, ResourceSlotIdentifier, NodeIdentifier),
+    #[error("edge {0:?} already exists")]
     EdgeAlreadyExists(Edge),
-    #[error("Edge {0:?} does not exist")]
+    #[error("edge {0:?} does not exist")]
     EdgeDoesNotExist(Edge),
-    #[error("Node {0:?} update error")]
+    #[error("node {0:?} update error")]
     NodeOnUpdateError(NodeIdentifier),
-    #[error("Node {0:?} render error")]
+    #[error("node {0:?} render error")]
     NodeOnRenderError(NodeIdentifier),
-    #[error("Unknown render graph error")]
+    #[error("unknown render graph error")]
     Unknown,
 }
