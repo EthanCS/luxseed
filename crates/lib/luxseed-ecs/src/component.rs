@@ -127,6 +127,8 @@
 
 use std::any::Any;
 
+use crate::storage::UnsafeStorage;
+
 pub trait Component: Any + Sized {
-    type Storage: Any;
+    type Storage: UnsafeStorage<Self>;
 }
