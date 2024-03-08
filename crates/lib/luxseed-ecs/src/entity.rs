@@ -118,3 +118,5 @@
 //         todo!()
 //     }
 // }
+
+pub type Index = u32;

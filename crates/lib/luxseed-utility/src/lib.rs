@@ -1,3 +1,3 @@
 pub mod pool;
 pub mod resource;
-pub mod unsafe_sync_cell;
+pub mod sync_unsafe_cell;
