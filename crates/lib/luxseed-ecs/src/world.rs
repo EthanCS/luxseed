@@ -5,26 +5,21 @@
 //     entity::{Entities, Entity, EntityLocation},
 // };
 
-use crate::component::Component;
+use crate::entity::{Entities, Entity};
 
-pub struct World {}
+pub struct World {
+    entities: Entities,
+}
 
 impl World {
-    fn new() -> Self {
-        todo!()
+    pub fn new() -> Self {
+        Self {
+            entities: Entities::default(),
+        }
     }
 
-    fn register<T: Component>(&mut self)
-    where
-        T::Storage: Default,
-    {
-        self.register_with_storage::<T, _>(Default::default);
-    }
-
-    fn register_with_storage<T: Component, F>(&mut self, storage: F)
-    where
-        F: FnOnce() -> T::Storage,
-    {
-        todo!()
+    pub fn spawn(&mut self) -> Entity {
+        let entity = self.entities.alloc_entity();
+        entity
     }
 }

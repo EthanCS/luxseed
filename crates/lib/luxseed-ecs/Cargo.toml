@@ -3,5 +3,9 @@ name = "luxseed-ecs"
 version = "0.0.1"
 edition = "2021"
 
+[dev-dependencies]
+rand = "0.8.5"
+
 [dependencies]
 luxseed-utility = { path = "../luxseed-utility" }
+thiserror = "1.0.56"
