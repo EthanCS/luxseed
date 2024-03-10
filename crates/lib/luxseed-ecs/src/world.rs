@@ -5,16 +5,21 @@
 //     entity::{Entities, Entity, EntityLocation},
 // };
 
-use crate::entity::{Entities, Entity};
+use crate::{
+    archetype::Archetypes,
+    entity::{Entities, Entity},
+};
 
 pub struct World {
     entities: Entities,
+    archetypes: Archetypes,
 }
 
 impl World {
     pub fn new() -> Self {
         Self {
             entities: Entities::default(),
+            archetypes: Archetypes::new(),
         }
     }
 
