@@ -1,3 +1,4 @@
+use std::num::NonZeroUsize;
 use std::{alloc::Layout, ptr::NonNull};
 
 pub struct AnyVec {
@@ -18,6 +19,16 @@ impl AnyVec {
             layout,
             drop_fn: drop,
         }
+    }
+
+    fn grow_exact(&mut self, increment: NonZeroUsize) {
+        let new_capacity = self.capacity + increment.get();
+        let new_layout =
+            Layout::from_size_align(self.layout.size() * new_capacity, self.layout.align())
+                .unwrap();
+        let new_data = unsafe { std::alloc::realloc(self.data.as_ptr(), new_layout, new_capacity) };
+        self.data = NonNull::new(new_data).expect("Failed to allocate memory");
+        self.capacity = new_capacity;
     }
 
     pub fn clear(&mut self) {
